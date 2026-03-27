@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { motion } from 'motion/react';
 import {
   Activity, AlertTriangle, CheckCircle2, Clock, PackageSearch,
@@ -497,7 +497,9 @@ export function CataloghiView() {
 
 // --- FORNITORI ---
 export function FornitoriView() {
-  const { suppliers, deleteSupplier } = useStore();
+  const store = useStore();
+  const suppliers = store.suppliers || [];
+  const deleteSupplier = store.deleteSupplier;
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingSupplier, setEditingSupplier] = useState<Supplier | undefined>(undefined);
 
@@ -599,7 +601,9 @@ export function FornitoriView() {
 
 // --- CLIENTI ---
 export function ClientiView() {
-  const { customers, deleteCustomer } = useStore();
+  const store = useStore();
+  const customers = store.customers || [];
+  const deleteCustomer = store.deleteCustomer;
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingCustomer, setEditingCustomer] = useState<Customer | undefined>(undefined);
 
@@ -698,7 +702,9 @@ export function ClientiView() {
 
 // --- ORDINI ---
 export function OrdiniView() {
-  const { orders, deleteOrder } = useStore();
+  const store = useStore();
+  const orders = store.orders || [];
+  const deleteOrder = store.deleteOrder;
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingOrder, setEditingOrder] = useState<Order | undefined>(undefined);
 
