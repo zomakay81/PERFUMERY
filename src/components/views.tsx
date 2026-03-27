@@ -893,9 +893,8 @@ export function DocumentiView() {
             total: doc.amount
         };
         addOrder(newOrder);
-        // Update quote status
-        deleteDocument(doc.id);
-        addDocument({ ...doc, status: 'Confermato (Ordine)' });
+        // Update quote status to "In Ordine"
+        updateDocument(doc.id, { status: 'In Ordine' });
     }
   };
 
@@ -956,19 +955,23 @@ export function DocumentiView() {
                   </td>
                   <td className="p-5 text-right flex items-center justify-end gap-3">
                     <span className={`px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest ${
-                      doc.status === 'Pagata' || doc.status === 'Consegnato' ? 'bg-emerald-500/10 text-emerald-400' : 'bg-amber-500/10 text-amber-400'
+                      doc.status === 'Pagata' || doc.status === 'Consegnato' || doc.status === 'In Ordine' ? 'bg-emerald-500/10 text-emerald-400' : 'bg-amber-500/10 text-amber-400'
                     }`}>
                       {doc.status}
                     </span>
                     <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-all">
-                        {doc.type === 'Preventivo' && (
-                            <button onClick={() => handleConvert(doc, 'Order')} title="Converti in Ordine" className="p-2 bg-slate-800 hover:bg-purple-500/20 text-purple-400 rounded-lg"><ArrowRight size={14}/></button>
+                        {doc.status !== 'In Ordine' && (
+                            <>
+                                {doc.type === 'Preventivo' && (
+                                    <button onClick={() => handleConvert(doc, 'Order')} title="Converti in Ordine" className="p-2 bg-slate-800 hover:bg-purple-500/20 text-purple-400 rounded-lg"><ArrowRight size={14}/></button>
+                                )}
+                                {(doc.type === 'Preventivo' || doc.type === 'DDT') && (
+                                    <button onClick={() => handleConvert(doc, 'Fattura')} title="Converti in Fattura" className="p-2 bg-slate-800 hover:bg-emerald-500/20 text-emerald-400 rounded-lg"><FileText size={14}/></button>
+                                )}
+                                <button onClick={() => handleEdit(doc)} className="p-2 bg-slate-800 hover:bg-blue-500/20 text-blue-400 rounded-lg"><Edit2 size={14}/></button>
+                                <button onClick={() => handleDelete(doc.id)} className="p-2 bg-slate-800 hover:bg-rose-500/20 text-rose-400 rounded-lg"><Trash2 size={14}/></button>
+                            </>
                         )}
-                        {(doc.type === 'Preventivo' || doc.type === 'DDT') && (
-                            <button onClick={() => handleConvert(doc, 'Fattura')} title="Converti in Fattura" className="p-2 bg-slate-800 hover:bg-emerald-500/20 text-emerald-400 rounded-lg"><FileText size={14}/></button>
-                        )}
-                        <button onClick={() => handleEdit(doc)} className="p-2 bg-slate-800 hover:bg-blue-500/20 text-blue-400 rounded-lg"><Edit2 size={14}/></button>
-                        <button onClick={() => handleDelete(doc.id)} className="p-2 bg-slate-800 hover:bg-rose-500/20 text-rose-400 rounded-lg"><Trash2 size={14}/></button>
                     </div>
                   </td>
                 </tr>
