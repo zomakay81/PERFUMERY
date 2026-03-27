@@ -6,6 +6,7 @@ export interface StockItem {
   name: string;
   category: 'Materie Prime' | 'Packaging' | 'Prodotti Finiti' | 'Campioni';
   quantity: number;
+  committed: number;
   unit: string;
   minStock: number;
   price: number;
@@ -53,12 +54,15 @@ export interface Order {
 
 export interface Document {
   id: number;
-  type: 'Preventivo' | 'DDT' | 'Fattura';
+  type: 'Preventivo' | 'DDT' | 'Fattura' | 'Carico Libero' | 'Fattura Fornitore' | 'DDT Fornitore';
+  direction: 'Entrata' | 'Uscita';
   number: string;
   date: string;
   recipient: string;
-  amount: number | string;
+  amount: number;
   status: string;
+  items: { sku: string; name: string; quantity: number; price: number }[];
+  sourceOrderId?: string;
 }
 
 interface AppData {
@@ -109,13 +113,13 @@ interface StoreContextType extends AppData {
 // --- INITIAL DATA ---
 const initialData: AppData = {
   stock: [
-    { sku: 'MP-ALC-01', name: 'Alcol Etilico 96°', category: 'Materie Prime', quantity: 250, unit: 'L', minStock: 50, price: 5, status: 'Ottimo' },
-    { sku: 'MP-ESS-VNL', name: 'Essenza Vaniglia Madagascar', category: 'Materie Prime', quantity: 2.5, unit: 'L', minStock: 5, price: 450, status: 'In Esaurimento' },
-    { sku: 'PKG-BTL-50', name: 'Flacone Vetro 50ml', category: 'Packaging', quantity: 1200, unit: 'pz', minStock: 200, price: 0.8, status: 'Ottimo' },
-    { sku: 'PF-OUD-100', name: 'Oud & Bergamot 100ml', category: 'Prodotti Finiti', quantity: 45, unit: 'pz', minStock: 50, price: 120, status: 'Riordinare', imageUrl: 'https://picsum.photos/seed/perfume1/400/400' },
-    { sku: 'PF-VNL-50', name: 'Vanilla Noir 50ml', category: 'Prodotti Finiti', quantity: 20, unit: 'pz', minStock: 10, price: 145, status: 'Ottimo', imageUrl: 'https://picsum.photos/seed/perfume2/400/400' },
-    { sku: 'PF-CTR-100', name: 'Citrus Bloom 100ml', category: 'Prodotti Finiti', quantity: 80, unit: 'pz', minStock: 30, price: 85, status: 'Ottimo', imageUrl: 'https://picsum.photos/seed/perfume3/400/400' },
-    { sku: 'PF-AMB-100', name: 'Amber Wood 100ml', category: 'Prodotti Finiti', quantity: 15, unit: 'pz', minStock: 20, price: 130, status: 'Riordinare', imageUrl: 'https://picsum.photos/seed/perfume4/400/400' },
+    { sku: 'MP-ALC-01', name: 'Alcol Etilico 96°', category: 'Materie Prime', quantity: 250, committed: 0, unit: 'L', minStock: 50, price: 5, status: 'Ottimo' },
+    { sku: 'MP-ESS-VNL', name: 'Essenza Vaniglia Madagascar', category: 'Materie Prime', quantity: 2.5, committed: 0, unit: 'L', minStock: 5, price: 450, status: 'In Esaurimento' },
+    { sku: 'PKG-BTL-50', name: 'Flacone Vetro 50ml', category: 'Packaging', quantity: 1200, committed: 0, unit: 'pz', minStock: 200, price: 0.8, status: 'Ottimo' },
+    { sku: 'PF-OUD-100', name: 'Oud & Bergamot 100ml', category: 'Prodotti Finiti', quantity: 45, committed: 10, unit: 'pz', minStock: 50, price: 120, status: 'Riordinare', imageUrl: 'https://picsum.photos/seed/perfume1/400/400' },
+    { sku: 'PF-VNL-50', name: 'Vanilla Noir 50ml', category: 'Prodotti Finiti', quantity: 20, committed: 0, unit: 'pz', minStock: 10, price: 145, status: 'Ottimo', imageUrl: 'https://picsum.photos/seed/perfume2/400/400' },
+    { sku: 'PF-CTR-100', name: 'Citrus Bloom 100ml', category: 'Prodotti Finiti', quantity: 80, committed: 40, unit: 'pz', minStock: 30, price: 85, status: 'Ottimo', imageUrl: 'https://picsum.photos/seed/perfume3/400/400' },
+    { sku: 'PF-AMB-100', name: 'Amber Wood 100ml', category: 'Prodotti Finiti', quantity: 15, committed: 0, unit: 'pz', minStock: 20, price: 130, status: 'Riordinare', imageUrl: 'https://picsum.photos/seed/perfume4/400/400' },
   ],
   batches: [
     { id: 'LT-2023-10', name: 'Oud & Bergamot', phase: 'Macerazione', startDate: '2023-10-10', endDate: '2023-11-10', status: 'In Corso' },
@@ -153,9 +157,9 @@ const initialData: AppData = {
     },
   ],
   documents: [
-    { id: 1, type: 'Fattura', number: 'FPA-2023/45', date: '2023-10-26', recipient: 'Profumeria Centrale', amount: 1250, status: 'Pagata' },
-    { id: 2, type: 'DDT', number: 'DDT-2023/89', date: '2023-10-25', recipient: 'Boutique Roma', amount: '-', status: 'Consegnato' },
-    { id: 3, type: 'Preventivo', number: 'PRV-2023/112', date: '2023-10-24', recipient: 'Hotel Excelsior', amount: 3400, status: 'In Attesa' },
+    { id: 1, type: 'Fattura', direction: 'Uscita', number: 'FPA-2023/45', date: '2023-10-26', recipient: 'Profumeria Centrale', amount: 1250, status: 'Pagata', items: [{ sku: 'PF-OUD-100', name: 'Oud & Bergamot 100ml', quantity: 10, price: 120 }] },
+    { id: 2, type: 'DDT', direction: 'Uscita', number: 'DDT-2023/89', date: '2023-10-25', recipient: 'Boutique Roma', amount: 0, status: 'Consegnato', items: [] },
+    { id: 3, type: 'Preventivo', direction: 'Uscita', number: 'PRV-2023/112', date: '2023-10-24', recipient: 'Hotel Excelsior', amount: 3400, status: 'In Attesa', items: [{ sku: 'PF-CTR-100', name: 'Citrus Bloom 100ml', quantity: 40, price: 85 }] },
   ],
 };
 
@@ -200,7 +204,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   };
 
   // ACTIONS
-  const addStockItem = (item: StockItem) => setStock(prev => [...prev, item]);
+  const addStockItem = (item: StockItem) => setStock(prev => [...prev, { ...item, committed: item.committed || 0 }]);
   const updateStockItem = (sku: string, updates: Partial<StockItem>) => {
     setStock(prev => prev.map(item => {
       if (item.sku === sku) {
@@ -234,11 +238,54 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const updateCustomer = (id: number, updates: Partial<Customer>) => setCustomers(prev => prev.map(c => c.id === id ? { ...c, ...updates } : c));
   const deleteCustomer = (id: number) => setCustomers(prev => prev.filter(c => c.id !== id));
 
-  const addOrder = (o: Order) => setOrders(prev => [...prev, o]);
-  const updateOrder = (id: string, updates: Partial<Order>) => setOrders(prev => prev.map(o => o.id === id ? { ...o, ...updates } : o));
+  const addOrder = (o: Order) => {
+    setOrders(prev => [...prev, o]);
+    // Commit stock
+    o.items.forEach(item => {
+      setStock(prev => prev.map(s => s.sku === item.sku ? { ...s, committed: (s.committed || 0) + item.quantity } : s));
+    });
+  };
+
+  const updateOrder = (id: string, updates: Partial<Order>) => {
+    const oldOrder = orders.find(o => o.id === id);
+    if (oldOrder && updates.status === 'Annullato' && oldOrder.status !== 'Annullato') {
+      // Release committed stock
+      oldOrder.items.forEach(item => {
+        setStock(prev => prev.map(s => s.sku === item.sku ? { ...s, committed: Math.max(0, (s.committed || 0) - item.quantity) } : s));
+      });
+    }
+    setOrders(prev => prev.map(o => o.id === id ? { ...o, ...updates } : o));
+  };
   const deleteOrder = (id: string) => setOrders(prev => prev.filter(o => o.id !== id));
 
-  const addDocument = (d: Document) => setDocuments(prev => [...prev, { ...d, id: Date.now() }]);
+  const addDocument = (d: Document) => {
+    const doc = { ...d, id: Date.now() };
+    setDocuments(prev => [...prev, doc]);
+
+    // Stock logic
+    if (doc.direction === 'Entrata') {
+      // Carico
+      doc.items.forEach(item => {
+        updateStockQuantity(item.sku, item.quantity);
+      });
+    } else if (doc.direction === 'Uscita') {
+      // Scarico (only for Fattura and DDT)
+      if (doc.type === 'Fattura' || doc.type === 'DDT') {
+        doc.items.forEach(item => {
+          updateStockQuantity(item.sku, -item.quantity);
+          // If it came from an order, release committed
+          if (doc.sourceOrderId) {
+            setStock(prev => prev.map(s => s.sku === item.sku ? { ...s, committed: Math.max(0, (s.committed || 0) - item.quantity) } : s));
+          }
+        });
+
+        // If it came from an order, mark order as completed/shipped
+        if (doc.sourceOrderId) {
+          updateOrder(doc.sourceOrderId, { status: doc.type === 'DDT' ? 'Spedito' : 'Consegnato' });
+        }
+      }
+    }
+  };
   const updateDocument = (id: number, updates: Partial<Document>) => setDocuments(prev => prev.map(d => d.id === id ? { ...d, ...updates } : d));
   const deleteDocument = (id: number) => setDocuments(prev => prev.filter(d => d.id !== id));
 

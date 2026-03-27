@@ -3,14 +3,16 @@ import { motion } from 'motion/react';
 import {
   Activity, AlertTriangle, CheckCircle2, Clock, PackageSearch,
   TrendingUp, Plus, Search, Filter, Download, FileText, Package,
-  ArrowUpRight, Beaker, ShoppingBag, Truck, FlaskConical, Edit2, Trash2, Star
+  ArrowUpRight, ArrowRight, Beaker, ShoppingBag, Truck, FlaskConical, Edit2, Trash2, Star
 } from 'lucide-react';
-import { useStore, Supplier, Customer, Order, Batch, StockItem } from '../store/useStore';
+import { useStore, Supplier, Customer, Order, Batch, StockItem, Document as AppDocument } from '../store/useStore';
 import { SupplierModal } from './SupplierModal';
 import { CustomerModal } from './CustomerModal';
 import { OrderModal } from './OrderModal';
 import { BatchModal } from './BatchModal';
 import { StockModal } from './StockModal';
+import { StockInModal } from './StockInModal';
+import { DocumentModal } from './DocumentModal';
 import { exportCatalogToPDF } from '../utils/pdfExport';
 
 // --- COMPONENTS ---
@@ -307,6 +309,7 @@ export function ProduzioneView() {
 export function MagazzinoView() {
   const { stock, deleteStockItem } = useStore();
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isStockInModalOpen, setIsStockInModalOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<StockItem | undefined>(undefined);
 
   const handleEdit = (item: StockItem) => {
@@ -337,6 +340,12 @@ export function MagazzinoView() {
           <p className="text-slate-400 text-sm font-medium mt-1">Monitoraggio giacenze in tempo reale.</p>
         </div>
         <div className="flex gap-2">
+          <button
+            onClick={() => setIsStockInModalOpen(true)}
+            className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl flex items-center gap-2 transition-all shadow-lg shadow-emerald-600/20 active:scale-95"
+          >
+            <Plus size={20} /> Carico Rapido
+          </button>
           <button className="px-4 py-2.5 bg-slate-800/50 hover:bg-slate-700/50 border border-white/5 rounded-xl text-slate-300 font-bold text-sm transition-colors flex items-center gap-2">
             <Download size={18} /> Esporta
           </button>
@@ -369,6 +378,7 @@ export function MagazzinoView() {
                 <th className="p-5">Descrizione</th>
                 <th className="p-5">Categoria</th>
                 <th className="p-5">Giacenza</th>
+                <th className="p-5">Impegnata</th>
                 <th className="p-5">Stato</th>
                 <th className="p-5 text-right">Azioni</th>
               </tr>
@@ -384,6 +394,7 @@ export function MagazzinoView() {
                     </span>
                   </td>
                   <td className="p-5 font-mono text-purple-400 font-bold">{item.quantity} {item.unit}</td>
+                  <td className="p-5 font-mono text-rose-400/80 font-bold">{item.committed || 0} {item.unit}</td>
                   <td className="p-5">
                     <span className={`px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest ${
                       item.status === 'Ottimo' ? 'bg-emerald-500/10 text-emerald-400' :
@@ -420,6 +431,10 @@ export function MagazzinoView() {
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         item={editingItem}
+      />
+      <StockInModal
+        isOpen={isStockInModalOpen}
+        onClose={() => setIsStockInModalOpen(false)}
       />
     </motion.div>
   );
@@ -705,7 +720,10 @@ export function OrdiniView() {
   const store = useStore();
   const orders = store.orders || [];
   const deleteOrder = store.deleteOrder;
+  const addDocument = store.addDocument;
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isDocModalOpen, setIsDocModalOpen] = useState(false);
+  const [docInitialData, setDocInitialData] = useState<any>(null);
   const [editingOrder, setEditingOrder] = useState<Order | undefined>(undefined);
 
   const handleEdit = (o: Order) => {
@@ -722,6 +740,21 @@ export function OrdiniView() {
     if (confirm('Sei sicuro di voler eliminare questo ordine?')) {
       deleteOrder(id);
     }
+  };
+
+  const handleConvertToDoc = (order: Order, type: 'Fattura' | 'DDT') => {
+    setDocInitialData({
+        type,
+        direction: 'Uscita',
+        number: `${type === 'Fattura' ? 'FPA' : 'DDT'}-${order.id.split('-').pop()}`,
+        date: new Date().toISOString().split('T')[0],
+        recipient: order.customerName,
+        status: type === 'Fattura' ? 'Emessa' : 'Spedito',
+        items: order.items,
+        amount: order.total,
+        sourceOrderId: order.id
+    });
+    setIsDocModalOpen(true);
   };
 
   return (
@@ -770,6 +803,13 @@ export function OrdiniView() {
                   <td className="p-5 text-right">
                     <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-all duration-300 translate-x-2 group-hover:translate-x-0">
                       <button
+                        onClick={() => handleConvertToDoc(ordine, 'Fattura')}
+                        title="Converti in Fattura"
+                        className="p-2 bg-slate-800/80 hover:bg-emerald-500/20 text-slate-400 hover:text-emerald-400 rounded-lg transition-all border border-white/5 hover:border-emerald-500/30"
+                      >
+                        <FileText size={16} />
+                      </button>
+                      <button
                         onClick={() => handleEdit(ordine)}
                         title="Modifica"
                         className="p-2 bg-slate-800/80 hover:bg-blue-500/20 text-slate-400 hover:text-blue-400 rounded-lg transition-all border border-white/5 hover:border-blue-500/30"
@@ -797,13 +837,68 @@ export function OrdiniView() {
         onClose={() => setIsModalOpen(false)}
         order={editingOrder}
       />
+      <DocumentModal
+        isOpen={isDocModalOpen}
+        onClose={() => setIsDocModalOpen(false)}
+        initialData={docInitialData}
+      />
     </div>
   );
 }
 
 // --- DOCUMENTI ---
 export function DocumentiView() {
-  const { documents } = useStore();
+  const { documents, deleteDocument, addDocument, addOrder } = useStore();
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingDoc, setEditingDoc] = useState<AppDocument | undefined>(undefined);
+  const [filter, setFilter] = useState('Tutti');
+
+  const filteredDocs = documents.filter(doc => filter === 'Tutti' || doc.type === filter);
+
+  const handleEdit = (doc: AppDocument) => {
+    setEditingDoc(doc);
+    setIsModalOpen(true);
+  };
+
+  const handleAdd = () => {
+    setEditingDoc(undefined);
+    setIsModalOpen(true);
+  };
+
+  const handleDelete = (id: number) => {
+    if (confirm('Sei sicuro di voler eliminare questo documento? Le giacenze non verranno ripristinate automaticamente.')) {
+        deleteDocument(id);
+    }
+  };
+
+  const handleConvert = (doc: AppDocument, targetType: 'Fattura' | 'Order') => {
+    if (targetType === 'Fattura') {
+        const newDoc = {
+            ...doc,
+            id: Date.now(),
+            type: 'Fattura' as any,
+            number: `FPA-${doc.number.split('-').pop()}`,
+            date: new Date().toISOString().split('T')[0],
+            status: 'Emessa'
+        };
+        addDocument(newDoc);
+    } else if (targetType === 'Order') {
+        const newOrder: Order = {
+            id: `ORD-${Date.now().toString().slice(-4)}`,
+            customerId: 0, // Should be linked properly
+            customerName: doc.recipient,
+            date: new Date().toISOString().split('T')[0],
+            status: 'Nuovo',
+            items: doc.items,
+            total: doc.amount
+        };
+        addOrder(newOrder);
+        // Update quote status
+        deleteDocument(doc.id);
+        addDocument({ ...doc, status: 'Confermato (Ordine)' });
+    }
+  };
+
   return (
     <div className="space-y-8">
       <header className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -811,15 +906,22 @@ export function DocumentiView() {
           <h2 className="text-3xl font-black text-white tracking-tight">Documentazione</h2>
           <p className="text-slate-400 text-sm font-medium mt-1">Archivio fatture, DDT e preventivi.</p>
         </div>
-        <button className="px-6 py-2.5 bg-purple-600 hover:bg-purple-500 text-white font-bold rounded-xl flex items-center gap-2 transition-all shadow-lg shadow-purple-600/20 active:scale-95">
+        <button
+            onClick={handleAdd}
+            className="px-6 py-2.5 bg-purple-600 hover:bg-purple-500 text-white font-bold rounded-xl flex items-center gap-2 transition-all shadow-lg shadow-purple-600/20 active:scale-95"
+        >
           <Plus size={20} /> Nuovo Documento
         </button>
       </header>
 
       <div className="flex gap-4 border-b border-white/5 mb-6">
-        {['Tutti', 'Preventivi', 'DDT', 'Fatture'].map((tab, i) => (
-          <button key={tab} className={`pb-3 px-2 text-xs font-black uppercase tracking-widest transition-all ${i === 0 ? 'border-b-2 border-purple-500 text-purple-400' : 'text-slate-500 hover:text-slate-300'}`}>
-            {tab}
+        {['Tutti', 'Preventivo', 'DDT', 'Fattura'].map((tab) => (
+          <button
+            key={tab}
+            onClick={() => setFilter(tab)}
+            className={`pb-3 px-2 text-xs font-black uppercase tracking-widest transition-all ${filter === tab ? 'border-b-2 border-purple-500 text-purple-400' : 'text-slate-500 hover:text-slate-300'}`}
+          >
+            {tab === 'Preventivo' ? 'Preventivi' : tab === 'Fattura' ? 'Fatture' : tab}
           </button>
         ))}
       </div>
@@ -838,21 +940,36 @@ export function DocumentiView() {
               </tr>
             </thead>
             <tbody className="text-sm">
-              {documents.map((doc) => (
-                <tr key={doc.id} className="border-b border-white/5 hover:bg-white/[0.02] transition-colors">
-                  <td className="p-5 font-bold text-white">{doc.type}</td>
+              {filteredDocs.map((doc) => (
+                <tr key={doc.id} className="border-b border-white/5 hover:bg-white/[0.02] transition-colors group">
+                  <td className="p-5">
+                    <div className="flex items-center gap-2">
+                        <span className={`w-2 h-2 rounded-full ${doc.direction === 'Entrata' ? 'bg-emerald-400' : 'bg-blue-400'}`} />
+                        <span className="font-bold text-white">{doc.type}</span>
+                    </div>
+                  </td>
                   <td className="p-5 font-mono text-slate-400">{doc.number}</td>
                   <td className="p-5 text-slate-400">{doc.date}</td>
                   <td className="p-5 font-medium text-slate-200">{doc.recipient}</td>
                   <td className="p-5 font-bold text-white">
                     {typeof doc.amount === 'number' ? `€ ${doc.amount.toLocaleString()}` : doc.amount}
                   </td>
-                  <td className="p-5 text-right">
+                  <td className="p-5 text-right flex items-center justify-end gap-3">
                     <span className={`px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest ${
                       doc.status === 'Pagata' || doc.status === 'Consegnato' ? 'bg-emerald-500/10 text-emerald-400' : 'bg-amber-500/10 text-amber-400'
                     }`}>
                       {doc.status}
                     </span>
+                    <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-all">
+                        {doc.type === 'Preventivo' && (
+                            <button onClick={() => handleConvert(doc, 'Order')} title="Converti in Ordine" className="p-2 bg-slate-800 hover:bg-purple-500/20 text-purple-400 rounded-lg"><ArrowRight size={14}/></button>
+                        )}
+                        {(doc.type === 'Preventivo' || doc.type === 'DDT') && (
+                            <button onClick={() => handleConvert(doc, 'Fattura')} title="Converti in Fattura" className="p-2 bg-slate-800 hover:bg-emerald-500/20 text-emerald-400 rounded-lg"><FileText size={14}/></button>
+                        )}
+                        <button onClick={() => handleEdit(doc)} className="p-2 bg-slate-800 hover:bg-blue-500/20 text-blue-400 rounded-lg"><Edit2 size={14}/></button>
+                        <button onClick={() => handleDelete(doc.id)} className="p-2 bg-slate-800 hover:bg-rose-500/20 text-rose-400 rounded-lg"><Trash2 size={14}/></button>
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -860,6 +977,11 @@ export function DocumentiView() {
           </table>
         </div>
       </Card>
+      <DocumentModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        document={editingDoc}
+      />
     </div>
   );
 }
