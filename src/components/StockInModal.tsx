@@ -9,7 +9,7 @@ interface StockInModalProps {
 }
 
 export function StockInModal({ isOpen, onClose }: StockInModalProps) {
-  const { addDocument, stock, addStockItem, suppliers } = useStore();
+  const { addDocument, stock, addStockItem, suppliers, categories } = useStore();
 
   const [formData, setFormData] = useState<Partial<Document>>({
     type: 'Carico Libero',
@@ -254,12 +254,27 @@ export function StockInModal({ isOpen, onClose }: StockInModalProps) {
                             </div>
                             <div>
                                 <label className="block text-[10px] font-black text-slate-500 uppercase mb-1.5">Categoria</label>
-                                <select value={newProduct.category} onChange={e => setNewProduct({...newProduct, category: e.target.value as any})} className="w-full bg-slate-950/50 border border-white/5 rounded-xl px-4 py-2.5 text-sm focus:outline-none">
-                                    <option value="Materie Prime">Materie Prime</option>
-                                    <option value="Packaging">Packaging</option>
-                                    <option value="Prodotti Finiti">Prodotti Finiti</option>
+                                    <select required value={newProduct.category} onChange={e => setNewProduct({...newProduct, category: e.target.value, subcategory: '', deepcategory: ''})} className="w-full bg-slate-950/50 border border-white/5 rounded-xl px-4 py-2.5 text-sm focus:outline-none">
+                                        <option value="">Seleziona...</option>
+                                        {categories.filter(c => c.level === 1).map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
                                 </select>
                             </div>
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <label className="block text-[10px] font-black text-slate-500 uppercase mb-1.5">Sottocategoria</label>
+                                        <select value={newProduct.subcategory || ''} onChange={e => setNewProduct({...newProduct, subcategory: e.target.value, deepcategory: ''})} className="w-full bg-slate-950/50 border border-white/5 rounded-xl px-4 py-2.5 text-sm focus:outline-none disabled:opacity-50" disabled={!newProduct.category}>
+                                            <option value="">Seleziona...</option>
+                                            {categories.filter(c => c.level === 2 && c.parentId === categories.find(p => p.name === newProduct.category)?.id).map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label className="block text-[10px] font-black text-slate-500 uppercase mb-1.5">Fondo</label>
+                                        <select value={newProduct.deepcategory || ''} onChange={e => setNewProduct({...newProduct, deepcategory: e.target.value})} className="w-full bg-slate-950/50 border border-white/5 rounded-xl px-4 py-2.5 text-sm focus:outline-none disabled:opacity-50" disabled={!newProduct.subcategory}>
+                                            <option value="">Seleziona...</option>
+                                            {categories.filter(c => c.level === 3 && c.parentId === categories.find(p => p.name === newProduct.subcategory)?.id).map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
+                                        </select>
+                                    </div>
+                                </div>
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
                                     <label className="block text-[10px] font-black text-slate-500 uppercase mb-1.5">Unità</label>

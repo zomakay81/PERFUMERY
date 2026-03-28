@@ -3,9 +3,10 @@ import { motion } from 'motion/react';
 import {
   Activity, AlertTriangle, CheckCircle2, Clock, PackageSearch,
   TrendingUp, Plus, Search, Filter, Download, FileText, Package,
-  ArrowUpRight, ArrowRight, Beaker, ShoppingBag, Truck, FlaskConical, Edit2, Trash2, Star
+  ArrowUpRight, ArrowRight, Beaker, ShoppingBag, Truck, FlaskConical, Edit2, Trash2, Star,
+  ChevronRight, Settings, Undo2, Redo2, Layers
 } from 'lucide-react';
-import { useStore, Supplier, Customer, Order, Batch, StockItem, Document as AppDocument } from '../store/useStore';
+import { useStore, Supplier, Customer, Order, Batch, StockItem, Document as AppDocument, Category } from '../store/useStore';
 import { SupplierModal } from './SupplierModal';
 import { CustomerModal } from './CustomerModal';
 import { OrderModal } from './OrderModal';
@@ -725,6 +726,7 @@ export function OrdiniView() {
   const [isDocModalOpen, setIsDocModalOpen] = useState(false);
   const [docInitialData, setDocInitialData] = useState<any>(null);
   const [editingOrder, setEditingOrder] = useState<Order | undefined>(undefined);
+  const [hoveredOrder, setHoveredOrder] = useState<Order | null>(null);
 
   const handleEdit = (o: Order) => {
     setEditingOrder(o);
@@ -785,9 +787,14 @@ export function OrdiniView() {
                 <th className="p-5 text-right">Azioni</th>
               </tr>
             </thead>
-            <tbody className="text-sm">
+            <tbody className="text-sm relative">
               {orders.map((ordine) => (
-                <tr key={ordine.id} className="border-b border-white/5 hover:bg-white/[0.02] transition-colors group">
+                <tr
+                    key={ordine.id}
+                    className="border-b border-white/5 hover:bg-white/[0.02] transition-colors group"
+                    onMouseEnter={() => setHoveredOrder(ordine)}
+                    onMouseLeave={() => setHoveredOrder(null)}
+                >
                   <td className="p-5 font-mono text-purple-400 font-bold">{ordine.id}</td>
                   <td className="p-5 font-bold text-white">{ordine.customerName}</td>
                   <td className="p-5 text-slate-400">{ordine.date}</td>
@@ -832,6 +839,38 @@ export function OrdiniView() {
         </div>
       </Card>
 
+      <AnimatePresence>
+        {hoveredOrder && (
+            <motion.div
+                initial={{ opacity: 0, scale: 0.95, y: 10 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.95, y: 10 }}
+                className="fixed bottom-10 right-10 w-80 bg-slate-900 border border-purple-500/30 rounded-2xl shadow-2xl p-6 z-50 pointer-events-none"
+            >
+                <h4 className="text-[10px] font-black text-purple-400 uppercase tracking-widest mb-4 flex items-center gap-2">
+                    <ShoppingBag size={14} /> Anteprima Prodotti {hoveredOrder.id}
+                </h4>
+                <div className="space-y-3">
+                    {hoveredOrder.items.map((item, i) => (
+                        <div key={i} className="flex justify-between items-center bg-white/5 p-2.5 rounded-xl border border-white/5">
+                            <div>
+                                <p className="text-xs font-bold text-white">{item.name}</p>
+                                <p className="text-[10px] text-slate-500 font-mono">{item.sku}</p>
+                            </div>
+                            <div className="text-right">
+                                <p className="text-xs font-black text-purple-400">x{item.quantity}</p>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+                <div className="mt-4 pt-4 border-t border-white/5 flex justify-between items-center">
+                    <span className="text-[10px] font-black text-slate-500 uppercase">Totale Ordine</span>
+                    <span className="text-sm font-black text-white">€ {hoveredOrder.total.toLocaleString()}</span>
+                </div>
+            </motion.div>
+        )}
+      </AnimatePresence>
+
       <OrderModal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
@@ -844,6 +883,208 @@ export function OrdiniView() {
       />
     </div>
   );
+}
+
+// --- CATEGORIZZAZIONE ---
+export function CategorizzazioneView() {
+  const { categories, addCategory, updateCategory, deleteCategory } = useStore();
+  const [newCatName, setNewCatName] = useState('');
+  const [selectedParentId, setSelectedParentId] = useState<string | undefined>(undefined);
+  const [level, setLevel] = useState<1 | 2 | 3>(1);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editValue, setEditValue] = useState('');
+
+  const handleUpdate = (id: string) => {
+    if (!editValue) return;
+    updateCategory(id, { name: editValue });
+    setEditingId(null);
+  };
+
+  const handleAdd = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newCatName) return;
+    addCategory({ id: '', name: newCatName, parentId: selectedParentId, level });
+    setNewCatName('');
+  };
+
+  const level1 = categories.filter(c => c.level === 1);
+  const getChildren = (parentId: string) => categories.filter(c => c.parentId === parentId);
+
+  return (
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-8">
+      <header>
+        <h2 className="text-3xl font-black text-white tracking-tight">Gestione Categorie</h2>
+        <p className="text-slate-400 text-sm font-medium mt-1">Configura la gerarchia a 3 livelli: Categoria {'>'} Sottocategoria {'>'} Fondo.</p>
+      </header>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <Card className="lg:col-span-1">
+          <h3 className="text-lg font-bold text-white mb-6">Aggiungi Elemento</h3>
+          <form onSubmit={handleAdd} className="space-y-4">
+            <div>
+              <label className="block text-[10px] font-black text-slate-500 uppercase mb-1.5">Livello</label>
+              <select
+                value={level}
+                onChange={e => {
+                    const l = Number(e.target.value) as 1|2|3;
+                    setLevel(l);
+                    setSelectedParentId(undefined);
+                }}
+                className="w-full bg-slate-950/50 border border-white/5 rounded-xl px-4 py-2.5 text-sm"
+              >
+                <option value={1}>1. Categoria</option>
+                <option value={2}>2. Sottocategoria</option>
+                <option value={3}>3. Fondo</option>
+              </select>
+            </div>
+
+            {level > 1 && (
+                <div>
+                    <label className="block text-[10px] font-black text-slate-500 uppercase mb-1.5">Genitore (Livello {level - 1})</label>
+                    <select
+                        required
+                        value={selectedParentId || ''}
+                        onChange={e => setSelectedParentId(e.target.value)}
+                        className="w-full bg-slate-950/50 border border-white/5 rounded-xl px-4 py-2.5 text-sm"
+                    >
+                        <option value="">Seleziona...</option>
+                        {categories.filter(c => c.level === level - 1).map(c => (
+                            <option key={c.id} value={c.id}>{c.name}</option>
+                        ))}
+                    </select>
+                </div>
+            )}
+
+            <div>
+              <label className="block text-[10px] font-black text-slate-500 uppercase mb-1.5">Nome</label>
+              <input
+                type="text" required value={newCatName} onChange={e => setNewCatName(e.target.value)}
+                placeholder="Es. Materie Prime..."
+                className="w-full bg-slate-950/50 border border-white/5 rounded-xl px-4 py-2.5 text-sm"
+              />
+            </div>
+            <button type="submit" className="w-full py-3 bg-purple-600 hover:bg-purple-500 text-white font-bold rounded-xl transition-all shadow-lg shadow-purple-600/20">Aggiungi</button>
+          </form>
+        </Card>
+
+        <Card className="lg:col-span-2">
+            <h3 className="text-lg font-bold text-white mb-6">Struttura Attuale</h3>
+            <div className="space-y-4">
+                {level1.map(c1 => (
+                    <div key={c1.id} className="space-y-2">
+                        <div className="flex items-center justify-between p-3 bg-white/5 rounded-xl border border-white/5 group">
+                            {editingId === c1.id ? (
+                                <input autoFocus className="bg-transparent border-b border-purple-500 outline-none text-white font-bold" value={editValue} onChange={e => setEditValue(e.target.value)} onBlur={() => handleUpdate(c1.id)} onKeyDown={e => e.key === 'Enter' && handleUpdate(c1.id)} />
+                            ) : (
+                                <span className="font-bold text-white flex items-center gap-2" onDoubleClick={() => { setEditingId(c1.id); setEditValue(c1.name); }}><Layers size={16} className="text-purple-400" /> {c1.name}</span>
+                            )}
+                            <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-all">
+                                <button onClick={() => { setEditingId(c1.id); setEditValue(c1.name); }} className="p-1.5 text-blue-400 hover:bg-blue-400/10 rounded-lg"><Edit2 size={14} /></button>
+                                <button onClick={() => deleteCategory(c1.id)} className="p-1.5 text-rose-500 hover:bg-rose-500/10 rounded-lg"><Trash2 size={14} /></button>
+                            </div>
+                        </div>
+                        <div className="ml-8 space-y-2">
+                            {getChildren(c1.id).map(c2 => (
+                                <div key={c2.id} className="space-y-2">
+                                    <div className="flex items-center justify-between p-3 bg-white/[0.03] rounded-xl border border-white/5 group">
+                                        {editingId === c2.id ? (
+                                            <input autoFocus className="bg-transparent border-b border-blue-500 outline-none text-white font-semibold" value={editValue} onChange={e => setEditValue(e.target.value)} onBlur={() => handleUpdate(c2.id)} onKeyDown={e => e.key === 'Enter' && handleUpdate(c2.id)} />
+                                        ) : (
+                                            <span className="text-sm font-semibold text-slate-300 flex items-center gap-2" onDoubleClick={() => { setEditingId(c2.id); setEditValue(c2.name); }}><ChevronRight size={14} className="text-blue-400" /> {c2.name}</span>
+                                        )}
+                                        <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-all">
+                                            <button onClick={() => { setEditingId(c2.id); setEditValue(c2.name); }} className="p-1.5 text-blue-400 hover:bg-blue-400/10 rounded-lg"><Edit2 size={14} /></button>
+                                            <button onClick={() => deleteCategory(c2.id)} className="p-1.5 text-rose-500 hover:bg-rose-500/10 rounded-lg"><Trash2 size={14} /></button>
+                                        </div>
+                                    </div>
+                                    <div className="ml-8 space-y-2">
+                                        {getChildren(c2.id).map(c3 => (
+                                            <div key={c3.id} className="flex items-center justify-between p-2 bg-white/[0.01] rounded-lg border border-white/[0.02] group">
+                                                {editingId === c3.id ? (
+                                                    <input autoFocus className="bg-transparent border-b border-emerald-500 outline-none text-slate-300 text-xs" value={editValue} onChange={e => setEditValue(e.target.value)} onBlur={() => handleUpdate(c3.id)} onKeyDown={e => e.key === 'Enter' && handleUpdate(c3.id)} />
+                                                ) : (
+                                                    <span className="text-xs text-slate-400 flex items-center gap-2" onDoubleClick={() => { setEditingId(c3.id); setEditValue(c3.name); }}><ChevronRight size={12} className="text-emerald-400" /> {c3.name}</span>
+                                                )}
+                                                <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-all">
+                                                    <button onClick={() => { setEditingId(c3.id); setEditValue(c3.name); }} className="p-1.5 text-blue-400 hover:bg-blue-400/10 rounded-lg"><Edit2 size={12} /></button>
+                                                    <button onClick={() => deleteCategory(c3.id)} className="p-1.5 text-rose-500 hover:bg-rose-500/10 rounded-lg"><Trash2 size={12} /></button>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                ))}
+            </div>
+        </Card>
+      </div>
+    </motion.div>
+  );
+}
+
+// --- IMPOSTAZIONI ---
+export function ImpostazioniView() {
+    const { resetApp, exportData, importData, undo, redo, canUndo, canRedo } = useStore();
+
+    const handleReset = (absolute: boolean) => {
+        if (confirm(`Sei sicuro di voler resettare l'app? ${absolute ? 'TUTTI i dati verranno cancellati (vuoto assoluto).' : 'L\'app tornerà ai dati iniziali.'}`)) {
+            resetApp(absolute);
+        }
+    };
+
+    return (
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-8">
+            <header>
+                <h2 className="text-3xl font-black text-white tracking-tight">Impostazioni Sistema</h2>
+                <p className="text-slate-400 text-sm font-medium mt-1">Gestione backup, ripristino e configurazione globale.</p>
+            </header>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <Card>
+                    <h3 className="text-lg font-bold text-white mb-6 flex items-center gap-2"><Undo2 size={20} className="text-purple-400" /> Cronologia Azioni</h3>
+                    <div className="flex gap-4">
+                        <button
+                            disabled={!canUndo} onClick={undo}
+                            className={`flex-1 py-4 rounded-2xl border flex flex-col items-center gap-2 transition-all ${canUndo ? 'bg-white/5 border-white/10 hover:bg-white/10 text-white' : 'opacity-30 cursor-not-allowed border-white/5 text-slate-500'}`}
+                        >
+                            <Undo2 size={24} />
+                            <span className="text-xs font-black uppercase">Annulla Ultima</span>
+                        </button>
+                        <button
+                            disabled={!canRedo} onClick={redo}
+                            className={`flex-1 py-4 rounded-2xl border flex flex-col items-center gap-2 transition-all ${canRedo ? 'bg-white/5 border-white/10 hover:bg-white/10 text-white' : 'opacity-30 cursor-not-allowed border-white/5 text-slate-500'}`}
+                        >
+                            <Redo2 size={24} />
+                            <span className="text-xs font-black uppercase">Ripristina</span>
+                        </button>
+                    </div>
+                    <p className="text-[10px] text-slate-500 mt-4 text-center font-bold uppercase tracking-widest italic">Vengono tracciate solo le macro operazioni (salvataggi, eliminazioni)</p>
+                </Card>
+
+                <Card>
+                    <h3 className="text-lg font-bold text-rose-400 mb-6 flex items-center gap-2"><AlertTriangle size={20} /> Zona Pericolo</h3>
+                    <div className="space-y-4">
+                        <button
+                            onClick={() => handleReset(false)}
+                            className="w-full py-4 rounded-2xl bg-slate-800/50 border border-white/5 hover:bg-slate-700/50 text-slate-300 font-bold transition-all text-left px-6 flex justify-between items-center"
+                        >
+                            <span>Ripristina Dati Iniziali (Demo)</span>
+                            <ArrowRight size={18} />
+                        </button>
+                        <button
+                            onClick={() => handleReset(true)}
+                            className="w-full py-4 rounded-2xl bg-rose-500/10 border border-rose-500/20 hover:bg-rose-500/20 text-rose-500 font-bold transition-all text-left px-6 flex justify-between items-center"
+                        >
+                            <span>RESET TOTALE (Vuoto Assoluto)</span>
+                            <Trash2 size={18} />
+                        </button>
+                    </div>
+                </Card>
+            </div>
+        </motion.div>
+    );
 }
 
 // --- DOCUMENTI ---

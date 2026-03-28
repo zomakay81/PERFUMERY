@@ -10,10 +10,14 @@ interface StockModalProps {
 }
 
 export function StockModal({ isOpen, onClose, item }: StockModalProps) {
-  const { addStockItem, updateStockItem } = useStore();
+  const { addStockItem, updateStockItem, categories } = useStore();
   const [formData, setFormData] = useState<Partial<StockItem>>(
-    item || { sku: '', name: '', category: 'Materie Prime', quantity: 0, unit: 'L', minStock: 10, price: 0 }
+    item || { sku: '', name: '', category: '', subcategory: '', deepcategory: '', quantity: 0, unit: 'L', minStock: 10, price: 0 }
   );
+
+  const level1 = categories.filter(c => c.level === 1);
+  const subcategories = categories.filter(c => c.level === 2 && c.parentId === categories.find(p => p.name === formData.category)?.id);
+  const deepcategories = categories.filter(c => c.level === 3 && c.parentId === categories.find(p => p.name === formData.subcategory)?.id);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -64,14 +68,40 @@ export function StockModal({ isOpen, onClose, item }: StockModalProps) {
                 <div>
                   <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1.5">Categoria</label>
                   <select
+                    required
                     value={formData.category}
-                    onChange={e => setFormData({...formData, category: e.target.value as any})}
+                    onChange={e => setFormData({...formData, category: e.target.value, subcategory: '', deepcategory: ''})}
                     className="w-full bg-slate-950/50 border border-white/5 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500/50"
                   >
-                    <option value="Materie Prime">Materie Prime</option>
-                    <option value="Packaging">Packaging</option>
-                    <option value="Prodotti Finiti">Prodotti Finiti</option>
-                    <option value="Campioni">Campioni</option>
+                    <option value="">Seleziona...</option>
+                    {level1.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1.5">Sottocategoria</label>
+                  <select
+                    value={formData.subcategory}
+                    onChange={e => setFormData({...formData, subcategory: e.target.value, deepcategory: ''})}
+                    className="w-full bg-slate-950/50 border border-white/5 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500/50 disabled:opacity-50"
+                    disabled={!formData.category}
+                  >
+                    <option value="">Seleziona...</option>
+                    {subcategories.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1.5">Fondo Categoria</label>
+                  <select
+                    value={formData.deepcategory}
+                    onChange={e => setFormData({...formData, deepcategory: e.target.value})}
+                    className="w-full bg-slate-950/50 border border-white/5 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500/50 disabled:opacity-50"
+                    disabled={!formData.subcategory}
+                  >
+                    <option value="">Seleziona...</option>
+                    {deepcategories.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
                   </select>
                 </div>
               </div>
