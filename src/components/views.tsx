@@ -804,12 +804,12 @@ export function OrdiniView() {
 
   const [showDuplicateOrderDialog, setShowDuplicateOrderDialog] = useState<Order | null>(null);
 
-  const handleDuplicateOrder = (o: Order, keepCustomer: boolean) => {
+  const handleDuplicateOrder = (o: Order, mode: 'same' | 'new') => {
     const newOrder: Order = {
         ...o,
         id: `ORD-${Date.now().toString().slice(-6)}`,
-        customerName: keepCustomer ? o.customerName : '',
-        customerId: keepCustomer ? o.customerId : 0,
+        customerName: mode === 'same' ? o.customerName : '',
+        customerId: mode === 'same' ? o.customerId : 0,
         date: new Date().toISOString().split('T')[0],
         status: 'Nuovo'
     };
@@ -960,7 +960,7 @@ export function OrdiniView() {
                 initial={{ opacity: 0, scale: 0.95, x: -20 }}
                 animate={{ opacity: 1, scale: 1, x: 0 }}
                 exit={{ opacity: 0, scale: 0.95, x: -20 }}
-                className="fixed bottom-10 left-80 w-80 bg-slate-900 border border-purple-500/30 rounded-2xl shadow-2xl p-6 z-50 pointer-events-none"
+                className="fixed bottom-20 left-[300px] w-80 bg-slate-900 border border-purple-500/30 rounded-2xl shadow-2xl p-6 z-[100] pointer-events-none"
             >
                 <h4 className="text-[10px] font-black text-purple-400 uppercase tracking-widest mb-4 flex items-center gap-2">
                     <ShoppingBag size={14} /> Anteprima Prodotti {hoveredOrder.id}
@@ -994,8 +994,8 @@ export function OrdiniView() {
                       <h3 className="text-xl font-black text-white mb-2">Duplica Ordine</h3>
                       <p className="text-slate-400 text-sm mb-8">Vuoi mantenere lo stesso cliente o assegnarne uno nuovo?</p>
                       <div className="grid gap-3">
-                          <button onClick={() => handleDuplicateOrder(showDuplicateOrderDialog, true)} className="w-full py-3 bg-purple-600 text-white font-bold rounded-xl hover:bg-purple-500 transition-all">Stesso Cliente</button>
-                          <button onClick={() => handleDuplicateOrder(showDuplicateOrderDialog, false)} className="w-full py-3 bg-slate-800 text-white font-bold rounded-xl hover:bg-slate-700 transition-all text-xs uppercase">Nuovo Cliente / Resetta</button>
+                          <button onClick={() => handleDuplicateOrder(showDuplicateOrderDialog, 'same')} className="w-full py-3 bg-purple-600 text-white font-bold rounded-xl hover:bg-purple-500 transition-all flex items-center justify-center gap-2">OK (Stesso Cliente)</button>
+                          <button onClick={() => handleDuplicateOrder(showDuplicateOrderDialog, 'new')} className="w-full py-3 bg-slate-800 text-white font-bold rounded-xl hover:bg-slate-700 transition-all flex items-center justify-center gap-2">NUOVO CLIENTE</button>
                           <button onClick={() => setShowDuplicateOrderDialog(null)} className="w-full py-3 text-slate-500 font-bold hover:text-white transition-all">Annulla</button>
                       </div>
                   </motion.div>
@@ -1437,12 +1437,12 @@ export function DocumentiView() {
 
   const [showDuplicateDocDialog, setShowDuplicateDocDialog] = useState<AppDocument | null>(null);
 
-  const handleDuplicateDoc = (doc: AppDocument, keepRecipient: boolean) => {
+  const handleDuplicateDoc = (doc: AppDocument, mode: 'same' | 'new') => {
     const newDoc: AppDocument = {
         ...doc,
         id: Date.now(),
         number: `${doc.type.slice(0, 3).toUpperCase()}-${Date.now().toString().slice(-6)}`,
-        recipient: keepRecipient ? doc.recipient : '',
+        recipient: mode === 'same' ? doc.recipient : '',
         paidAmount: 0,
         date: new Date().toISOString().split('T')[0],
         status: doc.type === 'Preventivo' ? 'In Attesa' : 'Bozza'
@@ -1592,9 +1592,10 @@ export function DocumentiView() {
                                 )}
                                 {(doc.type === 'Preventivo' || doc.type === 'Fattura') && doc.status !== 'Convertito' && (
                                     <button
-                                        onClick={(e) => { e.stopPropagation(); handleRecordPayment(doc); }}
+                                        type="button"
+                                        onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleRecordPayment(doc); }}
                                         title="Registra Pagamento"
-                                        className="p-2 bg-slate-800 hover:bg-amber-500/20 text-amber-400 rounded-lg pointer-events-auto"
+                                        className="relative p-2 bg-slate-800 hover:bg-amber-500/20 text-amber-400 rounded-lg z-20"
                                     >
                                         <Wallet size={14}/>
                                     </button>
@@ -1626,8 +1627,8 @@ export function DocumentiView() {
                       <h3 className="text-xl font-black text-white mb-2">Duplica {showDuplicateDocDialog.type}</h3>
                       <p className="text-slate-400 text-sm mb-8">Vuoi mantenere lo stesso destinatario o assegnarne uno nuovo?</p>
                       <div className="grid gap-3">
-                          <button onClick={() => handleDuplicateDoc(showDuplicateDocDialog, true)} className="w-full py-3 bg-purple-600 text-white font-bold rounded-xl hover:bg-purple-500 transition-all">Stesso Destinatario</button>
-                          <button onClick={() => handleDuplicateDoc(showDuplicateDocDialog, false)} className="w-full py-3 bg-slate-800 text-white font-bold rounded-xl hover:bg-slate-700 transition-all text-xs uppercase">Nuovo Destinatario / Resetta</button>
+                          <button onClick={() => handleDuplicateDoc(showDuplicateDocDialog, 'same')} className="w-full py-3 bg-purple-600 text-white font-bold rounded-xl hover:bg-purple-500 transition-all">OK (Stesso Destinatario)</button>
+                          <button onClick={() => handleDuplicateDoc(showDuplicateDocDialog, 'new')} className="w-full py-3 bg-slate-800 text-white font-bold rounded-xl hover:bg-slate-700 transition-all">NUOVO CLIENTE</button>
                           <button onClick={() => setShowDuplicateDocDialog(null)} className="w-full py-3 text-slate-500 font-bold hover:text-white transition-all">Annulla</button>
                       </div>
                   </motion.div>
