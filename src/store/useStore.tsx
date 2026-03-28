@@ -360,7 +360,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         });
 
         if (doc.sourceOrderId) {
-          newOrders = newOrders.map(o => o.id === doc.sourceOrderId ? { ...o, status: doc.type === 'DDT' ? 'Spedito' : 'Consegnato' } : o);
+          newOrders = newOrders.map(o => o.id === doc.sourceOrderId ? { ...o, status: doc.type === 'DDT' ? 'Spedito' : 'Fatturato' } : o);
         }
       }
     }

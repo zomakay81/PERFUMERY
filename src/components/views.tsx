@@ -4,7 +4,7 @@ import {
   Activity, AlertTriangle, CheckCircle2, Clock, PackageSearch,
   TrendingUp, Plus, Search, Filter, Download, FileText, Package,
   ArrowUpRight, ArrowRight, Beaker, ShoppingBag, Truck, FlaskConical, Edit2, Trash2, Star,
-  ChevronRight, Settings, Undo2, Redo2, Layers
+  ChevronRight, Settings, Undo2, Redo2, Layers, Copy
 } from 'lucide-react';
 import { useStore, Supplier, Customer, Order, Batch, StockItem, Document as AppDocument, Category } from '../store/useStore';
 import { SupplierModal } from './SupplierModal';
@@ -744,6 +744,16 @@ export function OrdiniView() {
     }
   };
 
+  const handleDuplicate = (o: Order) => {
+    const newOrder: Order = {
+        ...o,
+        id: `ORD-COPY-${Date.now().toString().slice(-4)}`,
+        date: new Date().toISOString().split('T')[0],
+        status: 'Nuovo'
+    };
+    store.addOrder(newOrder);
+  };
+
   const handleConvertToDoc = (order: Order, type: 'Fattura' | 'DDT') => {
     setDocInitialData({
         type,
@@ -801,7 +811,7 @@ export function OrdiniView() {
                   <td className="p-5 font-black text-white">€ {ordine.total.toLocaleString()}</td>
                   <td className="p-5">
                     <span className={`px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest ${
-                      ordine.status === 'Consegnato' ? 'bg-emerald-500/10 text-emerald-400' :
+                      ordine.status === 'Consegnato' || ordine.status === 'Fatturato' ? 'bg-emerald-500/10 text-emerald-400' :
                       ordine.status === 'Annullato' ? 'bg-rose-500/10 text-rose-400' : 'bg-blue-500/10 text-blue-400'
                     }`}>
                       {ordine.status}
@@ -809,12 +819,32 @@ export function OrdiniView() {
                   </td>
                   <td className="p-5 text-right">
                     <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-all duration-300 translate-x-2 group-hover:translate-x-0">
+                      {ordine.status !== 'Fatturato' && ordine.status !== 'Consegnato' && ordine.status !== 'Annullato' && (
+                        <>
+                            <button
+                                onClick={() => handleConvertToDoc(ordine, 'Fattura')}
+                                title="Converti in Fattura"
+                                className="p-2 bg-slate-800/80 hover:bg-emerald-500/20 text-slate-400 hover:text-emerald-400 rounded-lg transition-all border border-white/5 hover:border-emerald-500/30"
+                            >
+                                <FileText size={16} />
+                            </button>
+                            {ordine.status !== 'Spedito' && (
+                                <button
+                                    onClick={() => handleConvertToDoc(ordine, 'DDT')}
+                                    title="Converti in DDT"
+                                    className="p-2 bg-slate-800/80 hover:bg-blue-500/20 text-slate-400 hover:text-blue-400 rounded-lg transition-all border border-white/5 hover:border-blue-500/30"
+                                >
+                                    <Package size={16} />
+                                </button>
+                            )}
+                        </>
+                      )}
                       <button
-                        onClick={() => handleConvertToDoc(ordine, 'Fattura')}
-                        title="Converti in Fattura"
-                        className="p-2 bg-slate-800/80 hover:bg-emerald-500/20 text-slate-400 hover:text-emerald-400 rounded-lg transition-all border border-white/5 hover:border-emerald-500/30"
+                        onClick={() => handleDuplicate(ordine)}
+                        title="Duplica"
+                        className="p-2 bg-slate-800/80 hover:bg-purple-500/20 text-slate-400 hover:text-purple-400 rounded-lg transition-all border border-white/5 hover:border-purple-500/30"
                       >
-                        <FileText size={16} />
+                        <Copy size={16} />
                       </button>
                       <button
                         onClick={() => handleEdit(ordine)}
@@ -886,147 +916,141 @@ export function OrdiniView() {
 }
 
 // --- CATEGORIZZAZIONE ---
-export function CategorizzazioneView() {
-  const { categories, addCategory, updateCategory, deleteCategory } = useStore();
-  const [newCatName, setNewCatName] = useState('');
-  const [selectedParentId, setSelectedParentId] = useState<string | undefined>(undefined);
-  const [level, setLevel] = useState<1 | 2 | 3>(1);
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [editValue, setEditValue] = useState('');
+function CategorizzazioneSection() {
+    const { categories, addCategory, updateCategory, deleteCategory } = useStore();
+    const [newCatName, setNewCatName] = useState('');
+    const [selectedParentId, setSelectedParentId] = useState<string | undefined>(undefined);
+    const [level, setLevel] = useState<1 | 2 | 3>(1);
+    const [editingId, setEditingId] = useState<string | null>(null);
+    const [editValue, setEditValue] = useState('');
 
-  const handleUpdate = (id: string) => {
-    if (!editValue) return;
-    updateCategory(id, { name: editValue });
-    setEditingId(null);
-  };
+    const handleUpdate = (id: string) => {
+      if (!editValue) return;
+      updateCategory(id, { name: editValue });
+      setEditingId(null);
+    };
 
-  const handleAdd = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newCatName) return;
-    addCategory({ id: '', name: newCatName, parentId: selectedParentId, level });
-    setNewCatName('');
-  };
+    const handleAdd = (e: React.FormEvent) => {
+      e.preventDefault();
+      if (!newCatName) return;
+      addCategory({ id: '', name: newCatName, parentId: selectedParentId, level });
+      setNewCatName('');
+    };
 
-  const level1 = categories.filter(c => c.level === 1);
-  const getChildren = (parentId: string) => categories.filter(c => c.parentId === parentId);
+    const level1 = categories.filter(c => c.level === 1);
+    const getChildren = (parentId: string) => categories.filter(c => c.parentId === parentId);
 
-  return (
-    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-8">
-      <header>
-        <h2 className="text-3xl font-black text-white tracking-tight">Gestione Categorie</h2>
-        <p className="text-slate-400 text-sm font-medium mt-1">Configura la gerarchia a 3 livelli: Categoria {'>'} Sottocategoria {'>'} Fondo.</p>
-      </header>
+    return (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          <div className="lg:col-span-1 space-y-6">
+            <h3 className="text-lg font-bold text-white mb-6">Aggiungi Categoria</h3>
+            <form onSubmit={handleAdd} className="space-y-4">
+              <div>
+                <label className="block text-[10px] font-black text-slate-500 uppercase mb-1.5">Livello</label>
+                <select
+                  value={level}
+                  onChange={e => {
+                      const l = Number(e.target.value) as 1|2|3;
+                      setLevel(l);
+                      setSelectedParentId(undefined);
+                  }}
+                  className="w-full bg-slate-950/50 border border-white/5 rounded-xl px-4 py-2.5 text-sm"
+                >
+                  <option value={1}>1. Categoria</option>
+                  <option value={2}>2. Sottocategoria</option>
+                  <option value={3}>3. Fondo</option>
+                </select>
+              </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        <Card className="lg:col-span-1">
-          <h3 className="text-lg font-bold text-white mb-6">Aggiungi Elemento</h3>
-          <form onSubmit={handleAdd} className="space-y-4">
-            <div>
-              <label className="block text-[10px] font-black text-slate-500 uppercase mb-1.5">Livello</label>
-              <select
-                value={level}
-                onChange={e => {
-                    const l = Number(e.target.value) as 1|2|3;
-                    setLevel(l);
-                    setSelectedParentId(undefined);
-                }}
-                className="w-full bg-slate-950/50 border border-white/5 rounded-xl px-4 py-2.5 text-sm"
-              >
-                <option value={1}>1. Categoria</option>
-                <option value={2}>2. Sottocategoria</option>
-                <option value={3}>3. Fondo</option>
-              </select>
-            </div>
+              {level > 1 && (
+                  <div>
+                      <label className="block text-[10px] font-black text-slate-500 uppercase mb-1.5">Genitore (Livello {level - 1})</label>
+                      <select
+                          required
+                          value={selectedParentId || ''}
+                          onChange={e => setSelectedParentId(e.target.value)}
+                          className="w-full bg-slate-950/50 border border-white/5 rounded-xl px-4 py-2.5 text-sm"
+                      >
+                          <option value="">Seleziona...</option>
+                          {categories.filter(c => c.level === level - 1).map(c => (
+                              <option key={c.id} value={c.id}>{c.name}</option>
+                          ))}
+                      </select>
+                  </div>
+              )}
 
-            {level > 1 && (
-                <div>
-                    <label className="block text-[10px] font-black text-slate-500 uppercase mb-1.5">Genitore (Livello {level - 1})</label>
-                    <select
-                        required
-                        value={selectedParentId || ''}
-                        onChange={e => setSelectedParentId(e.target.value)}
-                        className="w-full bg-slate-950/50 border border-white/5 rounded-xl px-4 py-2.5 text-sm"
-                    >
-                        <option value="">Seleziona...</option>
-                        {categories.filter(c => c.level === level - 1).map(c => (
-                            <option key={c.id} value={c.id}>{c.name}</option>
-                        ))}
-                    </select>
-                </div>
-            )}
+              <div>
+                <label className="block text-[10px] font-black text-slate-500 uppercase mb-1.5">Nome</label>
+                <input
+                  type="text" required value={newCatName} onChange={e => setNewCatName(e.target.value)}
+                  placeholder="Es. Materie Prime..."
+                  className="w-full bg-slate-950/50 border border-white/5 rounded-xl px-4 py-2.5 text-sm"
+                />
+              </div>
+              <button type="submit" className="w-full py-3 bg-purple-600 hover:bg-purple-500 text-white font-bold rounded-xl transition-all shadow-lg shadow-purple-600/20">Aggiungi</button>
+            </form>
+          </div>
 
-            <div>
-              <label className="block text-[10px] font-black text-slate-500 uppercase mb-1.5">Nome</label>
-              <input
-                type="text" required value={newCatName} onChange={e => setNewCatName(e.target.value)}
-                placeholder="Es. Materie Prime..."
-                className="w-full bg-slate-950/50 border border-white/5 rounded-xl px-4 py-2.5 text-sm"
-              />
-            </div>
-            <button type="submit" className="w-full py-3 bg-purple-600 hover:bg-purple-500 text-white font-bold rounded-xl transition-all shadow-lg shadow-purple-600/20">Aggiungi</button>
-          </form>
-        </Card>
-
-        <Card className="lg:col-span-2">
-            <h3 className="text-lg font-bold text-white mb-6">Struttura Attuale</h3>
-            <div className="space-y-4">
-                {level1.map(c1 => (
-                    <div key={c1.id} className="space-y-2">
-                        <div className="flex items-center justify-between p-3 bg-white/5 rounded-xl border border-white/5 group">
-                            {editingId === c1.id ? (
-                                <input autoFocus className="bg-transparent border-b border-purple-500 outline-none text-white font-bold" value={editValue} onChange={e => setEditValue(e.target.value)} onBlur={() => handleUpdate(c1.id)} onKeyDown={e => e.key === 'Enter' && handleUpdate(c1.id)} />
-                            ) : (
-                                <span className="font-bold text-white flex items-center gap-2" onDoubleClick={() => { setEditingId(c1.id); setEditValue(c1.name); }}><Layers size={16} className="text-purple-400" /> {c1.name}</span>
-                            )}
-                            <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-all">
-                                <button onClick={() => { setEditingId(c1.id); setEditValue(c1.name); }} className="p-1.5 text-blue-400 hover:bg-blue-400/10 rounded-lg"><Edit2 size={14} /></button>
-                                <button onClick={() => deleteCategory(c1.id)} className="p-1.5 text-rose-500 hover:bg-rose-500/10 rounded-lg"><Trash2 size={14} /></button>
-                            </div>
-                        </div>
-                        <div className="ml-8 space-y-2">
-                            {getChildren(c1.id).map(c2 => (
-                                <div key={c2.id} className="space-y-2">
-                                    <div className="flex items-center justify-between p-3 bg-white/[0.03] rounded-xl border border-white/5 group">
-                                        {editingId === c2.id ? (
-                                            <input autoFocus className="bg-transparent border-b border-blue-500 outline-none text-white font-semibold" value={editValue} onChange={e => setEditValue(e.target.value)} onBlur={() => handleUpdate(c2.id)} onKeyDown={e => e.key === 'Enter' && handleUpdate(c2.id)} />
-                                        ) : (
-                                            <span className="text-sm font-semibold text-slate-300 flex items-center gap-2" onDoubleClick={() => { setEditingId(c2.id); setEditValue(c2.name); }}><ChevronRight size={14} className="text-blue-400" /> {c2.name}</span>
-                                        )}
-                                        <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-all">
-                                            <button onClick={() => { setEditingId(c2.id); setEditValue(c2.name); }} className="p-1.5 text-blue-400 hover:bg-blue-400/10 rounded-lg"><Edit2 size={14} /></button>
-                                            <button onClick={() => deleteCategory(c2.id)} className="p-1.5 text-rose-500 hover:bg-rose-500/10 rounded-lg"><Trash2 size={14} /></button>
-                                        </div>
-                                    </div>
-                                    <div className="ml-8 space-y-2">
-                                        {getChildren(c2.id).map(c3 => (
-                                            <div key={c3.id} className="flex items-center justify-between p-2 bg-white/[0.01] rounded-lg border border-white/[0.02] group">
-                                                {editingId === c3.id ? (
-                                                    <input autoFocus className="bg-transparent border-b border-emerald-500 outline-none text-slate-300 text-xs" value={editValue} onChange={e => setEditValue(e.target.value)} onBlur={() => handleUpdate(c3.id)} onKeyDown={e => e.key === 'Enter' && handleUpdate(c3.id)} />
-                                                ) : (
-                                                    <span className="text-xs text-slate-400 flex items-center gap-2" onDoubleClick={() => { setEditingId(c3.id); setEditValue(c3.name); }}><ChevronRight size={12} className="text-emerald-400" /> {c3.name}</span>
-                                                )}
-                                                <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-all">
-                                                    <button onClick={() => { setEditingId(c3.id); setEditValue(c3.name); }} className="p-1.5 text-blue-400 hover:bg-blue-400/10 rounded-lg"><Edit2 size={12} /></button>
-                                                    <button onClick={() => deleteCategory(c3.id)} className="p-1.5 text-rose-500 hover:bg-rose-500/10 rounded-lg"><Trash2 size={12} /></button>
-                                                </div>
-                                            </div>
-                                        ))}
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-                ))}
-            </div>
-        </Card>
-      </div>
-    </motion.div>
-  );
-}
+          <div className="lg:col-span-2">
+              <h3 className="text-lg font-bold text-white mb-6">Struttura Attuale</h3>
+              <div className="space-y-4">
+                  {level1.map(c1 => (
+                      <div key={c1.id} className="space-y-2">
+                          <div className="flex items-center justify-between p-3 bg-white/5 rounded-xl border border-white/5 group">
+                              {editingId === c1.id ? (
+                                  <input autoFocus className="bg-transparent border-b border-purple-500 outline-none text-white font-bold" value={editValue} onChange={e => setEditValue(e.target.value)} onBlur={() => handleUpdate(c1.id)} onKeyDown={e => e.key === 'Enter' && handleUpdate(c1.id)} />
+                              ) : (
+                                  <span className="font-bold text-white flex items-center gap-2" onDoubleClick={() => { setEditingId(c1.id); setEditValue(c1.name); }}><Layers size={16} className="text-purple-400" /> {c1.name}</span>
+                              )}
+                              <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-all">
+                                  <button onClick={() => { setEditingId(c1.id); setEditValue(c1.name); }} className="p-1.5 text-blue-400 hover:bg-blue-400/10 rounded-lg"><Edit2 size={14} /></button>
+                                  <button onClick={() => deleteCategory(c1.id)} className="p-1.5 text-rose-500 hover:bg-rose-500/10 rounded-lg"><Trash2 size={14} /></button>
+                              </div>
+                          </div>
+                          <div className="ml-8 space-y-2">
+                              {getChildren(c1.id).map(c2 => (
+                                  <div key={c2.id} className="space-y-2">
+                                      <div className="flex items-center justify-between p-3 bg-white/[0.03] rounded-xl border border-white/5 group">
+                                          {editingId === c2.id ? (
+                                              <input autoFocus className="bg-transparent border-b border-blue-500 outline-none text-white font-semibold" value={editValue} onChange={e => setEditValue(e.target.value)} onBlur={() => handleUpdate(c2.id)} onKeyDown={e => e.key === 'Enter' && handleUpdate(c2.id)} />
+                                          ) : (
+                                              <span className="text-sm font-semibold text-slate-300 flex items-center gap-2" onDoubleClick={() => { setEditingId(c2.id); setEditValue(c2.name); }}><ChevronRight size={14} className="text-blue-400" /> {c2.name}</span>
+                                          )}
+                                          <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-all">
+                                              <button onClick={() => { setEditingId(c2.id); setEditValue(c2.name); }} className="p-1.5 text-blue-400 hover:bg-blue-400/10 rounded-lg"><Edit2 size={14} /></button>
+                                              <button onClick={() => deleteCategory(c2.id)} className="p-1.5 text-rose-500 hover:bg-rose-500/10 rounded-lg"><Trash2 size={14} /></button>
+                                          </div>
+                                      </div>
+                                      <div className="ml-8 space-y-2">
+                                          {getChildren(c2.id).map(c3 => (
+                                              <div key={c3.id} className="flex items-center justify-between p-2 bg-white/[0.01] rounded-lg border border-white/[0.02] group">
+                                                  {editingId === c3.id ? (
+                                                      <input autoFocus className="bg-transparent border-b border-emerald-500 outline-none text-slate-300 text-xs" value={editValue} onChange={e => setEditValue(e.target.value)} onBlur={() => handleUpdate(c3.id)} onKeyDown={e => e.key === 'Enter' && handleUpdate(c3.id)} />
+                                                  ) : (
+                                                      <span className="text-xs text-slate-400 flex items-center gap-2" onDoubleClick={() => { setEditingId(c3.id); setEditValue(c3.name); }}><ChevronRight size={12} className="text-emerald-400" /> {c3.name}</span>
+                                                  )}
+                                                  <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-all">
+                                                      <button onClick={() => { setEditingId(c3.id); setEditValue(c3.name); }} className="p-1.5 text-blue-400 hover:bg-blue-400/10 rounded-lg"><Edit2 size={12} /></button>
+                                                      <button onClick={() => deleteCategory(c3.id)} className="p-1.5 text-rose-500 hover:bg-rose-500/10 rounded-lg"><Trash2 size={12} /></button>
+                                                  </div>
+                                              </div>
+                                          ))}
+                                      </div>
+                                  </div>
+                              ))}
+                          </div>
+                      </div>
+                  ))}
+              </div>
+          </div>
+        </div>
+    );
+  }
 
 // --- IMPOSTAZIONI ---
 export function ImpostazioniView() {
-    const { resetApp, exportData, importData, undo, redo, canUndo, canRedo } = useStore();
+    const { resetApp, undo, redo, canUndo, canRedo } = useStore();
+    const [activeTab, setActiveTab] = useState<'generali' | 'categorie'>('generali');
 
     const handleReset = (absolute: boolean) => {
         if (confirm(`Sei sicuro di voler resettare l'app? ${absolute ? 'TUTTI i dati verranno cancellati (vuoto assoluto).' : 'L\'app tornerà ai dati iniziali.'}`)) {
@@ -1038,51 +1062,70 @@ export function ImpostazioniView() {
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-8">
             <header>
                 <h2 className="text-3xl font-black text-white tracking-tight">Impostazioni Sistema</h2>
-                <p className="text-slate-400 text-sm font-medium mt-1">Gestione backup, ripristino e configurazione globale.</p>
+                <div className="flex gap-6 mt-6 border-b border-white/5">
+                    <button
+                        onClick={() => setActiveTab('generali')}
+                        className={`pb-3 text-xs font-black uppercase tracking-widest transition-all ${activeTab === 'generali' ? 'border-b-2 border-purple-500 text-purple-400' : 'text-slate-500 hover:text-slate-300'}`}
+                    >
+                        Generali & Backup
+                    </button>
+                    <button
+                        onClick={() => setActiveTab('categorie')}
+                        className={`pb-3 text-xs font-black uppercase tracking-widest transition-all ${activeTab === 'categorie' ? 'border-b-2 border-purple-500 text-purple-400' : 'text-slate-500 hover:text-slate-300'}`}
+                    >
+                        Gerarchia Categorie
+                    </button>
+                </div>
             </header>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                <Card>
-                    <h3 className="text-lg font-bold text-white mb-6 flex items-center gap-2"><Undo2 size={20} className="text-purple-400" /> Cronologia Azioni</h3>
-                    <div className="flex gap-4">
-                        <button
-                            disabled={!canUndo} onClick={undo}
-                            className={`flex-1 py-4 rounded-2xl border flex flex-col items-center gap-2 transition-all ${canUndo ? 'bg-white/5 border-white/10 hover:bg-white/10 text-white' : 'opacity-30 cursor-not-allowed border-white/5 text-slate-500'}`}
-                        >
-                            <Undo2 size={24} />
-                            <span className="text-xs font-black uppercase">Annulla Ultima</span>
-                        </button>
-                        <button
-                            disabled={!canRedo} onClick={redo}
-                            className={`flex-1 py-4 rounded-2xl border flex flex-col items-center gap-2 transition-all ${canRedo ? 'bg-white/5 border-white/10 hover:bg-white/10 text-white' : 'opacity-30 cursor-not-allowed border-white/5 text-slate-500'}`}
-                        >
-                            <Redo2 size={24} />
-                            <span className="text-xs font-black uppercase">Ripristina</span>
-                        </button>
-                    </div>
-                    <p className="text-[10px] text-slate-500 mt-4 text-center font-bold uppercase tracking-widest italic">Vengono tracciate solo le macro operazioni (salvataggi, eliminazioni)</p>
-                </Card>
+            {activeTab === 'generali' ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    <Card>
+                        <h3 className="text-lg font-bold text-white mb-6 flex items-center gap-2"><Undo2 size={20} className="text-purple-400" /> Cronologia Azioni</h3>
+                        <div className="flex gap-4">
+                            <button
+                                disabled={!canUndo} onClick={undo}
+                                className={`flex-1 py-4 rounded-2xl border flex flex-col items-center gap-2 transition-all ${canUndo ? 'bg-white/5 border-white/10 hover:bg-white/10 text-white' : 'opacity-30 cursor-not-allowed border-white/5 text-slate-500'}`}
+                            >
+                                <Undo2 size={24} />
+                                <span className="text-xs font-black uppercase">Annulla Ultima</span>
+                            </button>
+                            <button
+                                disabled={!canRedo} onClick={redo}
+                                className={`flex-1 py-4 rounded-2xl border flex flex-col items-center gap-2 transition-all ${canRedo ? 'bg-white/5 border-white/10 hover:bg-white/10 text-white' : 'opacity-30 cursor-not-allowed border-white/5 text-slate-500'}`}
+                            >
+                                <Redo2 size={24} />
+                                <span className="text-xs font-black uppercase">Ripristina</span>
+                            </button>
+                        </div>
+                        <p className="text-[10px] text-slate-500 mt-4 text-center font-bold uppercase tracking-widest italic">Vengono tracciate solo le macro operazioni (salvataggi, eliminazioni)</p>
+                    </Card>
 
+                    <Card>
+                        <h3 className="text-lg font-bold text-rose-400 mb-6 flex items-center gap-2"><AlertTriangle size={20} /> Zona Pericolo</h3>
+                        <div className="space-y-4">
+                            <button
+                                onClick={() => handleReset(false)}
+                                className="w-full py-4 rounded-2xl bg-slate-800/50 border border-white/5 hover:bg-slate-700/50 text-slate-300 font-bold transition-all text-left px-6 flex justify-between items-center"
+                            >
+                                <span>Ripristina Dati Iniziali (Demo)</span>
+                                <ArrowRight size={18} />
+                            </button>
+                            <button
+                                onClick={() => handleReset(true)}
+                                className="w-full py-4 rounded-2xl bg-rose-500/10 border border-rose-500/20 hover:bg-rose-500/20 text-rose-500 font-bold transition-all text-left px-6 flex justify-between items-center"
+                            >
+                                <span>RESET TOTALE (Vuoto Assoluto)</span>
+                                <Trash2 size={18} />
+                            </button>
+                        </div>
+                    </Card>
+                </div>
+            ) : (
                 <Card>
-                    <h3 className="text-lg font-bold text-rose-400 mb-6 flex items-center gap-2"><AlertTriangle size={20} /> Zona Pericolo</h3>
-                    <div className="space-y-4">
-                        <button
-                            onClick={() => handleReset(false)}
-                            className="w-full py-4 rounded-2xl bg-slate-800/50 border border-white/5 hover:bg-slate-700/50 text-slate-300 font-bold transition-all text-left px-6 flex justify-between items-center"
-                        >
-                            <span>Ripristina Dati Iniziali (Demo)</span>
-                            <ArrowRight size={18} />
-                        </button>
-                        <button
-                            onClick={() => handleReset(true)}
-                            className="w-full py-4 rounded-2xl bg-rose-500/10 border border-rose-500/20 hover:bg-rose-500/20 text-rose-500 font-bold transition-all text-left px-6 flex justify-between items-center"
-                        >
-                            <span>RESET TOTALE (Vuoto Assoluto)</span>
-                            <Trash2 size={18} />
-                        </button>
-                    </div>
+                    <CategorizzazioneSection />
                 </Card>
-            </div>
+            )}
         </motion.div>
     );
 }
@@ -1112,6 +1155,17 @@ export function DocumentiView() {
     }
   };
 
+  const handleDuplicate = (doc: AppDocument) => {
+    const newDoc: AppDocument = {
+        ...doc,
+        id: Date.now(),
+        number: `${doc.number}-COPY`,
+        date: new Date().toISOString().split('T')[0],
+        status: doc.type === 'Preventivo' ? 'In Attesa' : 'Bozza'
+    };
+    addDocument(newDoc);
+  };
+
   const handleConvert = (doc: AppDocument, targetType: 'Fattura' | 'Order') => {
     if (targetType === 'Fattura') {
         const newDoc = {
@@ -1123,6 +1177,7 @@ export function DocumentiView() {
             status: 'Emessa'
         };
         addDocument(newDoc);
+        updateDocument(doc.id, { status: 'Convertito' });
     } else if (targetType === 'Order') {
         const newOrder: Order = {
             id: `ORD-${Date.now().toString().slice(-4)}`,
@@ -1196,12 +1251,12 @@ export function DocumentiView() {
                   </td>
                   <td className="p-5 text-right flex items-center justify-end gap-3">
                     <span className={`px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest ${
-                      doc.status === 'Pagata' || doc.status === 'Consegnato' || doc.status === 'In Ordine' ? 'bg-emerald-500/10 text-emerald-400' : 'bg-amber-500/10 text-amber-400'
+                      doc.status === 'Pagata' || doc.status === 'Consegnato' || doc.status === 'In Ordine' || doc.status === 'Convertito' ? 'bg-emerald-500/10 text-emerald-400' : 'bg-amber-500/10 text-amber-400'
                     }`}>
                       {doc.status}
                     </span>
                     <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-all">
-                        {doc.status !== 'In Ordine' && (
+                        {doc.status !== 'In Ordine' && doc.status !== 'Convertito' && (
                             <>
                                 {doc.type === 'Preventivo' && (
                                     <button onClick={() => handleConvert(doc, 'Order')} title="Converti in Ordine" className="p-2 bg-slate-800 hover:bg-purple-500/20 text-purple-400 rounded-lg"><ArrowRight size={14}/></button>
@@ -1209,9 +1264,13 @@ export function DocumentiView() {
                                 {(doc.type === 'Preventivo' || doc.type === 'DDT') && (
                                     <button onClick={() => handleConvert(doc, 'Fattura')} title="Converti in Fattura" className="p-2 bg-slate-800 hover:bg-emerald-500/20 text-emerald-400 rounded-lg"><FileText size={14}/></button>
                                 )}
+                                <button onClick={() => handleDuplicate(doc)} title="Duplica" className="p-2 bg-slate-800 hover:bg-purple-500/20 text-purple-400 rounded-lg"><Copy size={14}/></button>
                                 <button onClick={() => handleEdit(doc)} className="p-2 bg-slate-800 hover:bg-blue-500/20 text-blue-400 rounded-lg"><Edit2 size={14}/></button>
                                 <button onClick={() => handleDelete(doc.id)} className="p-2 bg-slate-800 hover:bg-rose-500/20 text-rose-400 rounded-lg"><Trash2 size={14}/></button>
                             </>
+                        )}
+                        {(doc.status === 'In Ordine' || doc.status === 'Convertito') && (
+                             <button onClick={() => handleDuplicate(doc)} title="Duplica" className="p-2 bg-slate-800 hover:bg-purple-500/20 text-purple-400 rounded-lg"><Copy size={14}/></button>
                         )}
                     </div>
                   </td>
