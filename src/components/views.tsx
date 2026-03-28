@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { motion } from 'motion/react';
+import { motion, AnimatePresence } from 'motion/react';
 import {
   Activity, AlertTriangle, CheckCircle2, Clock, PackageSearch,
   TrendingUp, Plus, Search, Filter, Download, FileText, Package,
@@ -745,16 +745,25 @@ export function OrdiniView() {
   };
 
   const handleDuplicate = (o: Order) => {
+    const keepCustomer = confirm("Vuoi mantenere lo stesso cliente? (Annulla per resettare il cliente)");
     const newOrder: Order = {
         ...o,
-        id: `ORD-COPY-${Date.now().toString().slice(-4)}`,
+        id: `ORD-${Date.now().toString().slice(-6)}`,
+        customerName: keepCustomer ? o.customerName : '',
+        customerId: keepCustomer ? o.customerId : 0,
         date: new Date().toISOString().split('T')[0],
         status: 'Nuovo'
     };
     store.addOrder(newOrder);
+    setEditingOrder(newOrder);
+    setIsModalOpen(true);
   };
 
   const handleConvertToDoc = (order: Order, type: 'Fattura' | 'DDT') => {
+    if (order.status === 'Fatturato' || order.status === 'Spedito' || order.status === 'Consegnato') {
+        alert(`Ordine già convertito o processato (Stato: ${order.status})`);
+        return;
+    }
     setDocInitialData({
         type,
         direction: 'Uscita',
@@ -1132,7 +1141,7 @@ export function ImpostazioniView() {
 
 // --- DOCUMENTI ---
 export function DocumentiView() {
-  const { documents, deleteDocument, addDocument, addOrder } = useStore();
+  const { documents, deleteDocument, addDocument, addOrder, updateDocument } = useStore();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingDoc, setEditingDoc] = useState<AppDocument | undefined>(undefined);
   const [filter, setFilter] = useState('Tutti');
@@ -1156,17 +1165,25 @@ export function DocumentiView() {
   };
 
   const handleDuplicate = (doc: AppDocument) => {
+    const keepCustomer = confirm("Vuoi mantenere lo stesso destinatario? (Annulla per resettare)");
     const newDoc: AppDocument = {
         ...doc,
         id: Date.now(),
-        number: `${doc.number}-COPY`,
+        number: `${doc.type.slice(0, 3).toUpperCase()}-${Date.now().toString().slice(-6)}`,
+        recipient: keepCustomer ? doc.recipient : '',
         date: new Date().toISOString().split('T')[0],
         status: doc.type === 'Preventivo' ? 'In Attesa' : 'Bozza'
     };
     addDocument(newDoc);
+    setEditingDoc(newDoc);
+    setIsModalOpen(true);
   };
 
   const handleConvert = (doc: AppDocument, targetType: 'Fattura' | 'Order') => {
+    if (doc.status === 'Convertito' || doc.status === 'In Ordine') {
+        alert("Documento già convertito!");
+        return;
+    }
     if (targetType === 'Fattura') {
         const newDoc = {
             ...doc,
@@ -1174,7 +1191,8 @@ export function DocumentiView() {
             type: 'Fattura' as any,
             number: `FPA-${doc.number.split('-').pop()}`,
             date: new Date().toISOString().split('T')[0],
-            status: 'Emessa'
+            status: 'Emessa',
+            notes: `Da ${doc.type} ${doc.number}`
         };
         addDocument(newDoc);
         updateDocument(doc.id, { status: 'Convertito' });

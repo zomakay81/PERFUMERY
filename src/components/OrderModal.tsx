@@ -16,8 +16,8 @@ export function OrderModal({ isOpen, onClose, order }: OrderModalProps) {
   const [formData, setFormData] = useState<Partial<Order>>(
     order || {
       id: `ORD-${new Date().getFullYear()}-${Math.floor(Math.random()*1000).toString().padStart(3, '0')}`,
-      customerId: customers[0]?.id,
-      customerName: customers[0]?.name,
+      customerId: customers.length > 0 ? customers[0].id : 0,
+      customerName: customers.length > 0 ? customers[0].name : '',
       date: new Date().toISOString().split('T')[0],
       status: 'Nuovo',
       items: [],

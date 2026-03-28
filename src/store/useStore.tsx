@@ -56,7 +56,7 @@ export interface Order {
   customerId: number;
   customerName: string;
   date: string;
-  status: 'Nuovo' | 'In Lavorazione' | 'Spedito' | 'Consegnato' | 'Annullato';
+  status: 'Nuovo' | 'In Lavorazione' | 'Spedito' | 'Consegnato' | 'Annullato' | 'Fatturato';
   items: { sku: string; name: string; quantity: number; price: number }[];
   total: number;
 }
