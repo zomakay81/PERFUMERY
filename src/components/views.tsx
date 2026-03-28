@@ -802,8 +802,9 @@ export function OrdiniView() {
     }
   };
 
-  const handleDuplicate = (o: Order) => {
-    const keepCustomer = confirm("Vuoi mantenere lo stesso cliente? (Annulla per resettare il cliente)");
+  const [showDuplicateOrderDialog, setShowDuplicateOrderDialog] = useState<Order | null>(null);
+
+  const handleDuplicateOrder = (o: Order, keepCustomer: boolean) => {
     const newOrder: Order = {
         ...o,
         id: `ORD-${Date.now().toString().slice(-6)}`,
@@ -815,6 +816,7 @@ export function OrdiniView() {
     store.addOrder(newOrder);
     setEditingOrder(newOrder);
     setIsModalOpen(true);
+    setShowDuplicateOrderDialog(null);
   };
 
   const handleConvertToDoc = (order: Order, type: 'Fattura' | 'DDT') => {
@@ -920,7 +922,7 @@ export function OrdiniView() {
                         </>
                       )}
                       <button
-                        onClick={() => handleDuplicate(ordine)}
+                        onClick={() => setShowDuplicateOrderDialog(ordine)}
                         title="Duplica"
                         className="p-2 bg-slate-800/80 hover:bg-purple-500/20 text-slate-400 hover:text-purple-400 rounded-lg transition-all border border-white/5 hover:border-purple-500/30"
                       >
@@ -955,10 +957,10 @@ export function OrdiniView() {
       <AnimatePresence>
         {hoveredOrder && (
             <motion.div
-                initial={{ opacity: 0, scale: 0.95, y: 10 }}
-                animate={{ opacity: 1, scale: 1, y: 0 }}
-                exit={{ opacity: 0, scale: 0.95, y: 10 }}
-                className="fixed bottom-10 right-10 w-80 bg-slate-900 border border-purple-500/30 rounded-2xl shadow-2xl p-6 z-50 pointer-events-none"
+                initial={{ opacity: 0, scale: 0.95, x: -20 }}
+                animate={{ opacity: 1, scale: 1, x: 0 }}
+                exit={{ opacity: 0, scale: 0.95, x: -20 }}
+                className="fixed bottom-10 left-80 w-80 bg-slate-900 border border-purple-500/30 rounded-2xl shadow-2xl p-6 z-50 pointer-events-none"
             >
                 <h4 className="text-[10px] font-black text-purple-400 uppercase tracking-widest mb-4 flex items-center gap-2">
                     <ShoppingBag size={14} /> Anteprima Prodotti {hoveredOrder.id}
@@ -982,6 +984,23 @@ export function OrdiniView() {
                 </div>
             </motion.div>
         )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+          {showDuplicateOrderDialog && (
+              <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md">
+                  <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="bg-slate-900 border border-white/10 p-8 rounded-3xl shadow-2xl max-w-sm w-full text-center">
+                      <Copy className="mx-auto text-purple-400 mb-4" size={40} />
+                      <h3 className="text-xl font-black text-white mb-2">Duplica Ordine</h3>
+                      <p className="text-slate-400 text-sm mb-8">Vuoi mantenere lo stesso cliente o assegnarne uno nuovo?</p>
+                      <div className="grid gap-3">
+                          <button onClick={() => handleDuplicateOrder(showDuplicateOrderDialog, true)} className="w-full py-3 bg-purple-600 text-white font-bold rounded-xl hover:bg-purple-500 transition-all">Stesso Cliente</button>
+                          <button onClick={() => handleDuplicateOrder(showDuplicateOrderDialog, false)} className="w-full py-3 bg-slate-800 text-white font-bold rounded-xl hover:bg-slate-700 transition-all text-xs uppercase">Nuovo Cliente / Resetta</button>
+                          <button onClick={() => setShowDuplicateOrderDialog(null)} className="w-full py-3 text-slate-500 font-bold hover:text-white transition-all">Annulla</button>
+                      </div>
+                  </motion.div>
+              </div>
+          )}
       </AnimatePresence>
 
       <OrderModal
@@ -1416,19 +1435,22 @@ export function DocumentiView() {
     }
   };
 
-  const handleDuplicate = (doc: AppDocument) => {
-    const keepCustomer = confirm("Vuoi mantenere lo stesso destinatario? (Annulla per resettare)");
+  const [showDuplicateDocDialog, setShowDuplicateDocDialog] = useState<AppDocument | null>(null);
+
+  const handleDuplicateDoc = (doc: AppDocument, keepRecipient: boolean) => {
     const newDoc: AppDocument = {
         ...doc,
         id: Date.now(),
         number: `${doc.type.slice(0, 3).toUpperCase()}-${Date.now().toString().slice(-6)}`,
-        recipient: keepCustomer ? doc.recipient : '',
+        recipient: keepRecipient ? doc.recipient : '',
+        paidAmount: 0,
         date: new Date().toISOString().split('T')[0],
         status: doc.type === 'Preventivo' ? 'In Attesa' : 'Bozza'
     };
     addDocument(newDoc);
     setEditingDoc(newDoc);
     setIsModalOpen(true);
+    setShowDuplicateDocDialog(null);
   };
 
   const handleRecordPayment = (doc: AppDocument) => {
@@ -1568,16 +1590,22 @@ export function DocumentiView() {
                                 {(doc.type === 'Preventivo' || doc.type === 'DDT') && (
                                     <button onClick={() => handleConvert(doc, 'Fattura')} title="Converti in Fattura" className="p-2 bg-slate-800 hover:bg-emerald-500/20 text-emerald-400 rounded-lg"><FileText size={14}/></button>
                                 )}
-                                {(doc.type === 'Preventivo' || doc.type === 'Fattura') && (
-                                    <button onClick={() => handleRecordPayment(doc)} title="Registra Pagamento" className="p-2 bg-slate-800 hover:bg-amber-500/20 text-amber-400 rounded-lg"><Wallet size={14}/></button>
+                                {(doc.type === 'Preventivo' || doc.type === 'Fattura') && doc.status !== 'Convertito' && (
+                                    <button
+                                        onClick={(e) => { e.stopPropagation(); handleRecordPayment(doc); }}
+                                        title="Registra Pagamento"
+                                        className="p-2 bg-slate-800 hover:bg-amber-500/20 text-amber-400 rounded-lg pointer-events-auto"
+                                    >
+                                        <Wallet size={14}/>
+                                    </button>
                                 )}
-                                <button onClick={() => handleDuplicate(doc)} title="Duplica" className="p-2 bg-slate-800 hover:bg-purple-500/20 text-purple-400 rounded-lg"><Copy size={14}/></button>
+                                <button onClick={() => setShowDuplicateDocDialog(doc)} title="Duplica" className="p-2 bg-slate-800 hover:bg-purple-500/20 text-purple-400 rounded-lg"><Copy size={14}/></button>
                                 <button onClick={() => handleEdit(doc)} className="p-2 bg-slate-800 hover:bg-blue-500/20 text-blue-400 rounded-lg"><Edit2 size={14}/></button>
                                 <button onClick={() => handleDelete(doc.id)} className="p-2 bg-slate-800 hover:bg-rose-500/20 text-rose-400 rounded-lg"><Trash2 size={14}/></button>
                             </>
                         )}
                         {(doc.status === 'In Ordine' || doc.status === 'Convertito') && (
-                             <button onClick={() => handleDuplicate(doc)} title="Duplica" className="p-2 bg-slate-800 hover:bg-purple-500/20 text-purple-400 rounded-lg"><Copy size={14}/></button>
+                             <button onClick={() => setShowDuplicateDocDialog(doc)} title="Duplica" className="p-2 bg-slate-800 hover:bg-purple-500/20 text-purple-400 rounded-lg"><Copy size={14}/></button>
                         )}
                             </div>
                         </td>
@@ -1590,6 +1618,23 @@ export function DocumentiView() {
           </div>
         ))}
       </div>
+      <AnimatePresence>
+          {showDuplicateDocDialog && (
+              <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md">
+                  <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="bg-slate-900 border border-white/10 p-8 rounded-3xl shadow-2xl max-w-sm w-full text-center">
+                      <Copy className="mx-auto text-purple-400 mb-4" size={40} />
+                      <h3 className="text-xl font-black text-white mb-2">Duplica {showDuplicateDocDialog.type}</h3>
+                      <p className="text-slate-400 text-sm mb-8">Vuoi mantenere lo stesso destinatario o assegnarne uno nuovo?</p>
+                      <div className="grid gap-3">
+                          <button onClick={() => handleDuplicateDoc(showDuplicateDocDialog, true)} className="w-full py-3 bg-purple-600 text-white font-bold rounded-xl hover:bg-purple-500 transition-all">Stesso Destinatario</button>
+                          <button onClick={() => handleDuplicateDoc(showDuplicateDocDialog, false)} className="w-full py-3 bg-slate-800 text-white font-bold rounded-xl hover:bg-slate-700 transition-all text-xs uppercase">Nuovo Destinatario / Resetta</button>
+                          <button onClick={() => setShowDuplicateDocDialog(null)} className="w-full py-3 text-slate-500 font-bold hover:text-white transition-all">Annulla</button>
+                      </div>
+                  </motion.div>
+              </div>
+          )}
+      </AnimatePresence>
+
       <DocumentModal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}

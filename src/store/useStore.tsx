@@ -403,7 +403,22 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   };
 
   const deleteTransaction = (id: string) => {
-    pushToHistory({ ...data, transactions: transactions.filter(t => t.id !== id) });
+    const tx = transactions.find(t => t.id === id);
+    let newDocs = [...documents];
+    if (tx && tx.referenceId) {
+        newDocs = documents.map(d => {
+            if (d.id.toString() === tx.referenceId) {
+                const newPaid = Math.max(0, (d.paidAmount || 0) - tx.amount);
+                return {
+                    ...d,
+                    paidAmount: newPaid,
+                    status: newPaid === 0 ? (d.type === 'Fattura' ? 'Emessa' : 'In Attesa') : 'Pagamento Parziale'
+                };
+            }
+            return d;
+        });
+    }
+    pushToHistory({ ...data, transactions: transactions.filter(t => t.id !== id), documents: newDocs });
   };
 
   const convertQuoteToOrder = (quote: Document) => {

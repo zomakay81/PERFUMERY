@@ -17,9 +17,13 @@ export function StockModal({ isOpen, onClose, item }: StockModalProps) {
 
   const [newImageUrl, setNewImageUrl] = useState('');
 
-  const addImage = () => {
+  const addImage = (e?: any) => {
+    if (e) {
+        e.preventDefault();
+        e.stopPropagation();
+    }
     if (!newImageUrl) return;
-    setFormData({ ...formData, images: [...(formData.images || []), newImageUrl] });
+    setFormData(prev => ({ ...prev, images: [...(prev.images || []), newImageUrl] }));
     setNewImageUrl('');
   };
 
