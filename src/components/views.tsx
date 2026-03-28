@@ -1532,6 +1532,7 @@ export function DocumentiView() {
                         <th className="p-5">Data</th>
                         <th className="p-5">Intestatario</th>
                         <th className="p-5">Importo</th>
+                        <th className="p-5">Pagato</th>
                         <th className="p-5 text-right">Stato</th>
                     </tr>
                     </thead>
@@ -1549,7 +1550,11 @@ export function DocumentiView() {
                         <td className="p-5 font-medium text-slate-200">{doc.recipient}</td>
                         <td className="p-5">
                             <p className="font-bold text-white">{typeof doc.amount === 'number' ? `€ ${doc.amount.toLocaleString()}` : doc.amount}</p>
-                            {doc.paidAmount > 0 && <p className="text-[10px] text-emerald-400 font-bold">Pagato: € {doc.paidAmount.toLocaleString()}</p>}
+                        </td>
+                        <td className="p-5">
+                            <p className={`font-bold ${doc.paidAmount >= doc.amount ? 'text-emerald-400' : 'text-amber-400'}`}>
+                                € {(doc.paidAmount || 0).toLocaleString()}
+                            </p>
                         </td>
                         <td className="p-5 text-right flex items-center justify-end gap-3">
                     <span className={`px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest ${
@@ -1569,9 +1574,14 @@ export function DocumentiView() {
                                 {(doc.type === 'Preventivo' || doc.type === 'Fattura') && doc.status !== 'Convertito' && (
                                     <button 
                                         type="button"
+                                        disabled={doc.status === 'Pagato' || doc.paidAmount >= doc.amount}
                                         onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleRecordPayment(doc); }} 
                                         title="Registra Pagamento" 
-                                        className="relative p-2 bg-slate-800 hover:bg-amber-500/20 text-amber-400 rounded-lg z-20"
+                                        className={`relative p-2 rounded-lg z-20 transition-all ${
+                                            (doc.status === 'Pagato' || doc.paidAmount >= doc.amount)
+                                            ? 'bg-slate-900 text-slate-600 cursor-not-allowed opacity-50'
+                                            : 'bg-slate-800 hover:bg-amber-500/20 text-amber-400'
+                                        }`}
                                     >
                                         <Wallet size={14}/>
                                     </button>

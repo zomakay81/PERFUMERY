@@ -10,7 +10,7 @@ interface PaymentModalProps {
 }
 
 export function PaymentModal({ isOpen, onClose, document: doc }: PaymentModalProps) {
-  const { updateDocument, addTransaction } = useStore();
+  const { registerPayment } = useStore();
 
   const [amount, setAmount] = useState<number>(0);
   const [isTotal, setIsTotal] = useState(false);
@@ -41,25 +41,14 @@ export function PaymentModal({ isOpen, onClose, document: doc }: PaymentModalPro
       return;
     }
 
-    const newPaid = (doc.paidAmount || 0) + amount;
-    const isFullyPaid = newPaid >= doc.amount;
-
-    updateDocument(doc.id, {
-      paidAmount: newPaid,
-      status: isFullyPaid ? 'Pagato' : 'Pagamento Parziale'
-    });
-
-    addTransaction({
-      id: '',
-      type: 'Entrata',
-      date: date,
-      amount: amount,
-      recipient: doc.recipient,
-      category: `Incasso ${doc.type} n. ${doc.number}`,
-      method: method,
-      referenceId: doc.id.toString(),
-      notes: `Pagamento per ${doc.number}`
-    });
+    registerPayment(
+      doc.id,
+      amount,
+      date,
+      method,
+      `Pagamento per ${doc.number}`,
+      isTotal
+    );
 
     onClose();
   };

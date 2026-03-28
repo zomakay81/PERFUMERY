@@ -132,6 +132,7 @@ interface StoreContextType extends AppData {
 
   // Transactions
   addTransaction: (tx: Transaction) => void;
+  registerPayment: (docId: number, amount: number, date: string, method: Transaction['method'], notes: string, isTotal: boolean) => void;
   deleteTransaction: (id: string) => void;
 
   // Special Conversions
@@ -207,7 +208,7 @@ const initialData: AppData = {
     },
   ],
   documents: [
-    { id: 1, type: 'Fattura', direction: 'Uscita', number: 'FPA-2023/45', date: '2023-10-26', recipient: 'Profumeria Centrale', amount: 1250, paidAmount: 1250, status: 'Pagata', items: [{ sku: 'PF-OUD-100', name: 'Oud & Bergamot 100ml', quantity: 10, price: 120 }] },
+    { id: 1, type: 'Fattura', direction: 'Uscita', number: 'FPA-2023/45', date: '2023-10-26', recipient: 'Profumeria Centrale', amount: 1250, paidAmount: 1250, status: 'Pagato', items: [{ sku: 'PF-OUD-100', name: 'Oud & Bergamot 100ml', quantity: 10, price: 120 }] },
     { id: 2, type: 'DDT', direction: 'Uscita', number: 'DDT-2023/89', date: '2023-10-25', recipient: 'Boutique Roma', amount: 0, paidAmount: 0, status: 'Consegnato', items: [] },
     { id: 3, type: 'Preventivo', direction: 'Uscita', number: 'PRV-2023/112', date: '2023-10-24', recipient: 'Hotel Excelsior', amount: 3400, paidAmount: 0, status: 'In Attesa', items: [{ sku: 'PF-CTR-100', name: 'Citrus Bloom 100ml', quantity: 40, price: 85 }] },
   ],
@@ -402,6 +403,36 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     pushToHistory({ ...data, transactions: [...transactions, { ...tx, id: `TX-${Date.now()}` }] });
   };
 
+  const registerPayment = (docId: number, amount: number, date: string, method: Transaction['method'], notes: string, isTotal: boolean) => {
+    const doc = documents.find(d => d.id === docId);
+    if (!doc) return;
+
+    const newPaidAmount = (doc.paidAmount || 0) + amount;
+    const newStatus = isTotal || newPaidAmount >= doc.amount ? 'Pagato' : 'Pagamento Parziale';
+
+    const newTransaction: Transaction = {
+      id: `TX-${Date.now()}`,
+      type: doc.direction === 'Entrata' ? 'Uscita' : 'Entrata',
+      date,
+      amount,
+      recipient: doc.recipient,
+      category: doc.type === 'Fattura' ? 'Vendita Prodotti' : 'Pagamento Documento',
+      method,
+      referenceId: docId.toString(),
+      notes
+    };
+
+    const newDocuments = documents.map(d =>
+      d.id === docId ? { ...d, paidAmount: newPaidAmount, status: newStatus } : d
+    );
+
+    pushToHistory({
+      ...data,
+      transactions: [...transactions, newTransaction],
+      documents: newDocuments
+    });
+  };
+
   const deleteTransaction = (id: string) => {
     const tx = transactions.find(t => t.id === id);
     let newDocs = [...documents];
@@ -489,7 +520,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       convertQuoteToOrder,
       addCategory, updateCategory, deleteCategory,
       undo, redo, canUndo: history.length > 0, canRedo: redoStack.length > 0,
-      resetApp, exportData, importData
+      resetApp, exportData, importData,
+      registerPayment
     }}>
       {children}
     </StoreContext.Provider>
