@@ -173,9 +173,23 @@ export function DocumentModal({ isOpen, onClose, document, initialData }: Docume
               </div>
 
               <div className="border-t border-white/5 pt-6 flex items-center justify-between">
-                <div>
-                    <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Totale Documento</p>
-                    <p className="text-3xl font-black text-white">€ {formData.amount?.toLocaleString()}</p>
+                <div className="flex gap-8">
+                    <div>
+                        <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Totale</p>
+                        <p className="text-3xl font-black text-white">€ {formData.amount?.toLocaleString()}</p>
+                    </div>
+                    {formData.paidAmount ? (
+                        <div>
+                            <p className="text-[10px] font-black text-emerald-500 uppercase tracking-widest">Pagato</p>
+                            <p className="text-xl font-black text-emerald-400">€ {formData.paidAmount?.toLocaleString()}</p>
+                        </div>
+                    ) : null}
+                    {(formData.amount || 0) - (formData.paidAmount || 0) > 0 && formData.paidAmount ? (
+                        <div>
+                            <p className="text-[10px] font-black text-rose-500 uppercase tracking-widest">Residuo</p>
+                            <p className="text-xl font-black text-rose-400">€ {((formData.amount || 0) - (formData.paidAmount || 0)).toLocaleString()}</p>
+                        </div>
+                    ) : null}
                 </div>
                 <div className="flex gap-3">
                     <button type="button" onClick={onClose} className="px-6 py-2.5 bg-slate-800 hover:bg-slate-700 text-white font-bold rounded-xl">Annulla</button>

@@ -81,6 +81,7 @@ export interface Document {
   date: string;
   recipient: string;
   amount: number;
+  paidAmount: number;
   status: string;
   items: { sku: string; name: string; quantity: number; price: number }[];
   sourceOrderId?: string;
@@ -206,9 +207,9 @@ const initialData: AppData = {
     },
   ],
   documents: [
-    { id: 1, type: 'Fattura', direction: 'Uscita', number: 'FPA-2023/45', date: '2023-10-26', recipient: 'Profumeria Centrale', amount: 1250, status: 'Pagata', items: [{ sku: 'PF-OUD-100', name: 'Oud & Bergamot 100ml', quantity: 10, price: 120 }] },
-    { id: 2, type: 'DDT', direction: 'Uscita', number: 'DDT-2023/89', date: '2023-10-25', recipient: 'Boutique Roma', amount: 0, status: 'Consegnato', items: [] },
-    { id: 3, type: 'Preventivo', direction: 'Uscita', number: 'PRV-2023/112', date: '2023-10-24', recipient: 'Hotel Excelsior', amount: 3400, status: 'In Attesa', items: [{ sku: 'PF-CTR-100', name: 'Citrus Bloom 100ml', quantity: 40, price: 85 }] },
+    { id: 1, type: 'Fattura', direction: 'Uscita', number: 'FPA-2023/45', date: '2023-10-26', recipient: 'Profumeria Centrale', amount: 1250, paidAmount: 1250, status: 'Pagata', items: [{ sku: 'PF-OUD-100', name: 'Oud & Bergamot 100ml', quantity: 10, price: 120 }] },
+    { id: 2, type: 'DDT', direction: 'Uscita', number: 'DDT-2023/89', date: '2023-10-25', recipient: 'Boutique Roma', amount: 0, paidAmount: 0, status: 'Consegnato', items: [] },
+    { id: 3, type: 'Preventivo', direction: 'Uscita', number: 'PRV-2023/112', date: '2023-10-24', recipient: 'Hotel Excelsior', amount: 3400, paidAmount: 0, status: 'In Attesa', items: [{ sku: 'PF-CTR-100', name: 'Citrus Bloom 100ml', quantity: 40, price: 85 }] },
   ],
   transactions: [
     { id: 'TX-1', type: 'Entrata', date: '2023-10-26', amount: 1250, recipient: 'Profumeria Centrale', category: 'Vendita Prodotti', method: 'Bonifico', referenceId: '1' }

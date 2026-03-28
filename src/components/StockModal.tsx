@@ -176,14 +176,17 @@ export function StockModal({ isOpen, onClose, item }: StockModalProps) {
                 />
               </div>
 
-              <div className="space-y-4">
+              <div className="space-y-4 border-t border-white/5 pt-4">
                   <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest">Foto Prodotto</label>
                   <div className="flex gap-2">
                       <input
-                        type="text" placeholder="URL Immagine..." value={newImageUrl} onChange={e => setNewImageUrl(e.target.value)}
-                        className="flex-1 bg-slate-950/50 border border-white/5 rounded-xl px-4 py-2.5 text-sm focus:outline-none"
+                        type="text" placeholder="Incolla URL immagine..." value={newImageUrl} onChange={e => setNewImageUrl(e.target.value)}
+                        onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), addImage())}
+                        className="flex-1 bg-slate-950/50 border border-white/5 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500/50"
                       />
-                      <button type="button" onClick={addImage} className="p-2.5 bg-slate-800 text-white rounded-xl hover:bg-slate-700 transition-colors"><ImagePlus size={20}/></button>
+                      <button type="button" onClick={addImage} className="px-4 bg-purple-600/20 text-purple-400 border border-purple-500/30 rounded-xl hover:bg-purple-600/30 transition-all flex items-center gap-2 font-bold text-xs">
+                        <ImagePlus size={16}/> AGGIUNGI
+                      </button>
                   </div>
                   <div className="grid grid-cols-4 gap-2">
                       {formData.images?.map((url, idx) => (

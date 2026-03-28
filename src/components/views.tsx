@@ -525,7 +525,7 @@ export function CataloghiView() {
             <div className="relative glass-card overflow-hidden h-full flex flex-col">
               <div className="relative h-64 overflow-hidden">
                 <img
-                  src={prod.imageUrl || 'https://picsum.photos/seed/placeholder/400/400'}
+                  src={prod.images?.[0] || 'https://picsum.photos/seed/placeholder/400/400'}
                   alt={prod.name}
                   className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
                   referrerPolicy="no-referrer"
@@ -1381,7 +1381,7 @@ export function ImpostazioniView() {
 
 // --- DOCUMENTI ---
 export function DocumentiView() {
-  const { documents, deleteDocument, addDocument, addOrder, updateDocument, convertQuoteToOrder } = useStore();
+  const { documents, deleteDocument, addDocument, addOrder, updateDocument, convertQuoteToOrder, addTransaction } = useStore();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingDoc, setEditingDoc] = useState<AppDocument | undefined>(undefined);
   const [search, setSearch] = useState('');
@@ -1429,6 +1429,38 @@ export function DocumentiView() {
     addDocument(newDoc);
     setEditingDoc(newDoc);
     setIsModalOpen(true);
+  };
+
+  const handleRecordPayment = (doc: AppDocument) => {
+    const remaining = doc.amount - (doc.paidAmount || 0);
+    const amountStr = prompt(`Registra incasso per ${doc.number} (Residuo: € ${remaining})`, remaining.toString());
+    if (amountStr === null) return;
+
+    const amount = parseFloat(amountStr);
+    if (isNaN(amount) || amount <= 0) {
+        alert("Importo non valido");
+        return;
+    }
+
+    const newPaid = (doc.paidAmount || 0) + amount;
+    const isFullyPaid = newPaid >= doc.amount;
+
+    updateDocument(doc.id, {
+        paidAmount: newPaid,
+        status: isFullyPaid ? (doc.type === 'Fattura' ? 'Pagata' : 'Confermato (Pagato)') : 'Pagamento Parziale'
+    });
+
+    addTransaction({
+        id: '',
+        type: 'Entrata',
+        date: new Date().toISOString().split('T')[0],
+        amount: amount,
+        recipient: doc.recipient,
+        category: `Incasso ${doc.type}`,
+        method: 'Bonifico',
+        referenceId: doc.id.toString(),
+        notes: `Pagamento per ${doc.number}`
+    });
   };
 
   const handleConvert = (doc: AppDocument, targetType: 'Fattura' | 'Order') => {
@@ -1517,8 +1549,9 @@ export function DocumentiView() {
                         <td className="p-5 font-mono text-slate-400">{doc.number}</td>
                         <td className="p-5 text-slate-400">{doc.date}</td>
                         <td className="p-5 font-medium text-slate-200">{doc.recipient}</td>
-                        <td className="p-5 font-bold text-white">
-                            {typeof doc.amount === 'number' ? `€ ${doc.amount.toLocaleString()}` : doc.amount}
+                        <td className="p-5">
+                            <p className="font-bold text-white">{typeof doc.amount === 'number' ? `€ ${doc.amount.toLocaleString()}` : doc.amount}</p>
+                            {doc.paidAmount > 0 && <p className="text-[10px] text-emerald-400 font-bold">Pagato: € {doc.paidAmount.toLocaleString()}</p>}
                         </td>
                         <td className="p-5 text-right flex items-center justify-end gap-3">
                     <span className={`px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest ${
@@ -1534,6 +1567,9 @@ export function DocumentiView() {
                                 )}
                                 {(doc.type === 'Preventivo' || doc.type === 'DDT') && (
                                     <button onClick={() => handleConvert(doc, 'Fattura')} title="Converti in Fattura" className="p-2 bg-slate-800 hover:bg-emerald-500/20 text-emerald-400 rounded-lg"><FileText size={14}/></button>
+                                )}
+                                {(doc.type === 'Preventivo' || doc.type === 'Fattura') && (
+                                    <button onClick={() => handleRecordPayment(doc)} title="Registra Pagamento" className="p-2 bg-slate-800 hover:bg-amber-500/20 text-amber-400 rounded-lg"><Wallet size={14}/></button>
                                 )}
                                 <button onClick={() => handleDuplicate(doc)} title="Duplica" className="p-2 bg-slate-800 hover:bg-purple-500/20 text-purple-400 rounded-lg"><Copy size={14}/></button>
                                 <button onClick={() => handleEdit(doc)} className="p-2 bg-slate-800 hover:bg-blue-500/20 text-blue-400 rounded-lg"><Edit2 size={14}/></button>
