@@ -14,6 +14,7 @@ import { BatchModal } from './BatchModal';
 import { StockModal } from './StockModal';
 import { StockInModal } from './StockInModal';
 import { DocumentModal } from './DocumentModal';
+import { PaymentModal } from './PaymentModal';
 import { exportCatalogToPDF } from '../utils/pdfExport';
 
 // --- COMPONENTS ---
@@ -1402,6 +1403,8 @@ export function ImpostazioniView() {
 export function DocumentiView() {
   const { documents, deleteDocument, addDocument, addOrder, updateDocument, convertQuoteToOrder, addTransaction } = useStore();
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
+  const [selectedDocForPayment, setSelectedDocForPayment] = useState<AppDocument | null>(null);
   const [editingDoc, setEditingDoc] = useState<AppDocument | undefined>(undefined);
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState('Tutti');
@@ -1454,35 +1457,8 @@ export function DocumentiView() {
   };
 
   const handleRecordPayment = (doc: AppDocument) => {
-    const remaining = doc.amount - (doc.paidAmount || 0);
-    const amountStr = prompt(`Registra incasso per ${doc.number} (Residuo: € ${remaining})`, remaining.toString());
-    if (amountStr === null) return;
-    
-    const amount = parseFloat(amountStr);
-    if (isNaN(amount) || amount <= 0) {
-        alert("Importo non valido");
-        return;
-    }
-
-    const newPaid = (doc.paidAmount || 0) + amount;
-    const isFullyPaid = newPaid >= doc.amount;
-
-    updateDocument(doc.id, { 
-        paidAmount: newPaid,
-        status: isFullyPaid ? 'Pagato' : 'Pagamento Parziale'
-    });
-
-    addTransaction({
-        id: '',
-        type: 'Entrata',
-        date: new Date().toISOString().split('T')[0],
-        amount: amount,
-        recipient: doc.recipient,
-        category: `Incasso ${doc.type} n. ${doc.number}`,
-        method: 'Bonifico',
-        referenceId: doc.id.toString(),
-        notes: `Pagamento per ${doc.number}`
-    });
+    setSelectedDocForPayment(doc);
+    setIsPaymentModalOpen(true);
   };
 
   const handleConvert = (doc: AppDocument, targetType: 'Fattura' | 'Order') => {
@@ -1640,6 +1616,11 @@ export function DocumentiView() {
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         document={editingDoc}
+      />
+      <PaymentModal
+        isOpen={isPaymentModalOpen}
+        onClose={() => setIsPaymentModalOpen(false)}
+        document={selectedDocForPayment}
       />
     </div>
   );
