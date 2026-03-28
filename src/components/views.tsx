@@ -1469,7 +1469,7 @@ export function DocumentiView() {
 
     updateDocument(doc.id, { 
         paidAmount: newPaid,
-        status: isFullyPaid ? (doc.type === 'Fattura' ? 'Pagata' : 'Confermato (Pagato)') : 'Pagamento Parziale'
+        status: isFullyPaid ? 'Pagato' : 'Pagamento Parziale'
     });
 
     addTransaction({
@@ -1478,7 +1478,7 @@ export function DocumentiView() {
         date: new Date().toISOString().split('T')[0],
         amount: amount,
         recipient: doc.recipient,
-        category: `Incasso ${doc.type}`,
+        category: `Incasso ${doc.type} n. ${doc.number}`,
         method: 'Bonifico',
         referenceId: doc.id.toString(),
         notes: `Pagamento per ${doc.number}`
@@ -1577,7 +1577,7 @@ export function DocumentiView() {
                         </td>
                         <td className="p-5 text-right flex items-center justify-end gap-3">
                     <span className={`px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest ${
-                      doc.status === 'Pagata' || doc.status === 'Consegnato' || doc.status === 'In Ordine' || doc.status === 'Convertito' ? 'bg-emerald-500/10 text-emerald-400' : 'bg-amber-500/10 text-amber-400'
+                      doc.status === 'Pagata' || doc.status === 'Pagato' || doc.status === 'Consegnato' || doc.status === 'In Ordine' || doc.status === 'Convertito' ? 'bg-emerald-500/10 text-emerald-400' : 'bg-amber-500/10 text-amber-400'
                     }`}>
                       {doc.status}
                     </span>
