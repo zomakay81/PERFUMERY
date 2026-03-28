@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { X, Save } from 'lucide-react';
+import { X, Save, ImagePlus, Trash2 } from 'lucide-react';
 import { StockItem, useStore } from '../store/useStore';
 
 interface StockModalProps {
@@ -12,8 +12,20 @@ interface StockModalProps {
 export function StockModal({ isOpen, onClose, item }: StockModalProps) {
   const { addStockItem, updateStockItem, categories } = useStore();
   const [formData, setFormData] = useState<Partial<StockItem>>(
-    item || { sku: '', name: '', category: '', subcategory: '', deepcategory: '', quantity: 0, unit: 'L', minStock: 10, price: 0 }
+    item || { sku: '', name: '', category: '', subcategory: '', deepcategory: '', quantity: 0, unit: 'L', minStock: 10, price: 0, images: [] }
   );
+
+  const [newImageUrl, setNewImageUrl] = useState('');
+
+  const addImage = () => {
+    if (!newImageUrl) return;
+    setFormData({ ...formData, images: [...(formData.images || []), newImageUrl] });
+    setNewImageUrl('');
+  };
+
+  const removeImage = (index: number) => {
+    setFormData({ ...formData, images: (formData.images || []).filter((_, i) => i !== index) });
+  };
 
   const level1 = categories.filter(c => c.level === 1);
   const subcategories = categories.filter(c => c.level === 2 && c.parentId === categories.find(p => p.name === formData.category)?.id);
@@ -162,6 +174,27 @@ export function StockModal({ isOpen, onClose, item }: StockModalProps) {
                   onChange={e => setFormData({...formData, price: Number(e.target.value)})}
                   className="w-full bg-slate-950/50 border border-white/5 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500/50"
                 />
+              </div>
+
+              <div className="space-y-4">
+                  <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest">Foto Prodotto</label>
+                  <div className="flex gap-2">
+                      <input
+                        type="text" placeholder="URL Immagine..." value={newImageUrl} onChange={e => setNewImageUrl(e.target.value)}
+                        className="flex-1 bg-slate-950/50 border border-white/5 rounded-xl px-4 py-2.5 text-sm focus:outline-none"
+                      />
+                      <button type="button" onClick={addImage} className="p-2.5 bg-slate-800 text-white rounded-xl hover:bg-slate-700 transition-colors"><ImagePlus size={20}/></button>
+                  </div>
+                  <div className="grid grid-cols-4 gap-2">
+                      {formData.images?.map((url, idx) => (
+                          <div key={idx} className="relative aspect-square rounded-lg overflow-hidden group border border-white/10">
+                              <img src={url} className="w-full h-full object-cover" alt="" />
+                              <button onClick={() => removeImage(idx)} type="button" className="absolute inset-0 bg-rose-600/80 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                                  <Trash2 size={16} />
+                              </button>
+                          </div>
+                      ))}
+                  </div>
               </div>
 
               <div className="pt-4 flex gap-3">

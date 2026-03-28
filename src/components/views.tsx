@@ -4,9 +4,9 @@ import {
   Activity, AlertTriangle, CheckCircle2, Clock, PackageSearch,
   TrendingUp, Plus, Search, Filter, Download, FileText, Package,
   ArrowUpRight, ArrowRight, Beaker, ShoppingBag, Truck, FlaskConical, Edit2, Trash2, Star,
-  ChevronRight, Settings, Undo2, Redo2, Layers, Copy
+  ChevronRight, Settings, Undo2, Redo2, Layers, Copy, Wallet, CreditCard, History, Calendar
 } from 'lucide-react';
-import { useStore, Supplier, Customer, Order, Batch, StockItem, Document as AppDocument, Category } from '../store/useStore';
+import { useStore, Supplier, Customer, Order, Batch, StockItem, Document as AppDocument, Category, Transaction } from '../store/useStore';
 import { SupplierModal } from './SupplierModal';
 import { CustomerModal } from './CustomerModal';
 import { OrderModal } from './OrderModal';
@@ -21,6 +21,30 @@ const Card = ({ children, className = "" }: { children: React.ReactNode, classNa
   <div className={`glass-card p-6 ${className}`}>
     {children}
   </div>
+);
+
+const FilterBar = ({ value, onChange, placeholder = "Cerca...", filters, currentFilter, onFilterChange }: any) => (
+    <div className="flex flex-col md:flex-row gap-4 mb-6">
+        <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" size={18} />
+            <input
+                type="text" placeholder={placeholder} value={value} onChange={e => onChange(e.target.value)}
+                className="w-full pl-10 pr-4 py-2.5 bg-slate-900 border border-white/5 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500/50 text-sm"
+            />
+        </div>
+        {filters && (
+            <div className="flex gap-2 overflow-x-auto pb-1 md:pb-0">
+                {filters.map((f: string) => (
+                    <button
+                        key={f} onClick={() => onFilterChange(f)}
+                        className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest transition-all whitespace-nowrap ${currentFilter === f ? 'bg-purple-600 text-white shadow-lg shadow-purple-600/20' : 'bg-slate-800/50 text-slate-500 hover:text-slate-300'}`}
+                    >
+                        {f}
+                    </button>
+                ))}
+            </div>
+        )}
+    </div>
 );
 
 const StatCard = ({ title, value, icon: Icon, trend, color }: any) => (
@@ -308,10 +332,20 @@ export function ProduzioneView() {
 
 // --- MAGAZZINO ---
 export function MagazzinoView() {
-  const { stock, deleteStockItem } = useStore();
+  const { stock, deleteStockItem, categories } = useStore();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isStockInModalOpen, setIsStockInModalOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<StockItem | undefined>(undefined);
+  const [search, setSearch] = useState('');
+  const [filter, setFilter] = useState('Tutti');
+
+  const categoriesList = ['Tutti', ...categories.filter(c => c.level === 1).map(c => c.name)];
+
+  const filteredStock = stock.filter(item => {
+    const matchesSearch = item.name.toLowerCase().includes(search.toLowerCase()) || item.sku.toLowerCase().includes(search.toLowerCase());
+    const matchesFilter = filter === 'Tutti' || item.category === filter;
+    return matchesSearch && matchesFilter;
+  });
 
   const handleEdit = (item: StockItem) => {
     setEditingItem(item);
@@ -359,16 +393,11 @@ export function MagazzinoView() {
         </div>
       </header>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
-        {['Materie Prime', 'Packaging', 'Prodotti Finiti', 'Campioni'].map((cat) => (
-          <div key={cat} className="glass-card p-4 flex items-center justify-between group cursor-pointer hover:bg-purple-600/10 hover:border-purple-500/30 transition-all">
-            <span className="font-bold text-slate-300 group-hover:text-purple-400">{cat}</span>
-            <div className="p-1.5 rounded-lg bg-slate-800 group-hover:bg-purple-500/20">
-              <ArrowUpRight size={14} className="text-slate-500 group-hover:text-purple-400" />
-            </div>
-          </div>
-        ))}
-      </div>
+      <FilterBar
+        value={search} onChange={setSearch}
+        filters={categoriesList} currentFilter={filter} onFilterChange={setFilter}
+        placeholder="Cerca per nome o SKU..."
+      />
 
       <Card className="!p-0 overflow-hidden">
         <div className="overflow-x-auto">
@@ -385,7 +414,7 @@ export function MagazzinoView() {
               </tr>
             </thead>
             <tbody className="text-sm">
-              {stock.map((item) => (
+              {filteredStock.map((item) => (
                 <tr key={item.sku} className="border-b border-white/5 hover:bg-white/[0.02] transition-colors group">
                   <td className="p-5 font-mono text-slate-400 font-bold">{item.sku}</td>
                   <td className="p-5 font-bold text-white">{item.name}</td>
@@ -443,8 +472,17 @@ export function MagazzinoView() {
 
 // --- CATALOGHI ---
 export function CataloghiView() {
-  const { stock } = useStore();
-  const prodotti = stock.filter(item => item.category === 'Prodotti Finiti');
+  const { stock, categories } = useStore();
+  const [search, setSearch] = useState('');
+  const [filter, setFilter] = useState('Prodotti Finiti');
+
+  const categoriesList = categories.filter(c => c.level === 1).map(c => c.name);
+
+  const prodotti = stock.filter(item => {
+    const matchesSearch = item.name.toLowerCase().includes(search.toLowerCase()) || item.sku.toLowerCase().includes(search.toLowerCase());
+    const matchesFilter = item.category === filter;
+    return matchesSearch && matchesFilter;
+  });
 
   const handleExport = () => {
     exportCatalogToPDF(prodotti);
@@ -452,7 +490,7 @@ export function CataloghiView() {
 
   return (
     <div className="space-y-8">
-      <header className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <header className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
         <div>
           <h2 className="text-3xl font-black text-white tracking-tight">Catalogo Prodotti</h2>
           <p className="text-slate-400 text-sm font-medium mt-1">Pronto per l'esportazione ai clienti.</p>
@@ -469,6 +507,12 @@ export function CataloghiView() {
           </button>
         </div>
       </header>
+
+      <FilterBar
+        value={search} onChange={setSearch}
+        filters={categoriesList} currentFilter={filter} onFilterChange={setFilter}
+        placeholder="Cerca nel catalogo..."
+      />
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
         {prodotti.map((prod) => (
@@ -721,12 +765,26 @@ export function OrdiniView() {
   const store = useStore();
   const orders = store.orders || [];
   const deleteOrder = store.deleteOrder;
-  const addDocument = store.addDocument;
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isDocModalOpen, setIsDocModalOpen] = useState(false);
   const [docInitialData, setDocInitialData] = useState<any>(null);
   const [editingOrder, setEditingOrder] = useState<Order | undefined>(undefined);
   const [hoveredOrder, setHoveredOrder] = useState<Order | null>(null);
+  const [search, setSearch] = useState('');
+  const [filter, setFilter] = useState('Tutti');
+
+  const filteredOrders = orders.filter(o => {
+    const matchesSearch = o.customerName.toLowerCase().includes(search.toLowerCase()) || o.id.toLowerCase().includes(search.toLowerCase());
+    const matchesFilter = filter === 'Tutti' || o.status === filter;
+    return matchesSearch && matchesFilter;
+  });
+
+  const groupedOrders = filteredOrders.reduce((acc: any, o) => {
+    const month = o.date.slice(0, 7); // YYYY-MM
+    if (!acc[month]) acc[month] = [];
+    acc[month].push(o);
+    return acc;
+  }, {});
 
   const handleEdit = (o: Order) => {
     setEditingOrder(o);
@@ -793,40 +851,53 @@ export function OrdiniView() {
         </button>
       </header>
 
-      <Card className="!p-0 overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse">
-            <thead>
-              <tr className="bg-white/5 text-slate-500 text-[10px] font-black uppercase tracking-widest border-b border-white/5">
-                <th className="p-5">ID Ordine</th>
-                <th className="p-5">Cliente</th>
-                <th className="p-5">Data</th>
-                <th className="p-5">Importo</th>
-                <th className="p-5">Stato</th>
-                <th className="p-5 text-right">Azioni</th>
-              </tr>
-            </thead>
-            <tbody className="text-sm relative">
-              {orders.map((ordine) => (
-                <tr
-                    key={ordine.id}
-                    className="border-b border-white/5 hover:bg-white/[0.02] transition-colors group"
-                    onMouseEnter={() => setHoveredOrder(ordine)}
-                    onMouseLeave={() => setHoveredOrder(null)}
-                >
-                  <td className="p-5 font-mono text-purple-400 font-bold">{ordine.id}</td>
-                  <td className="p-5 font-bold text-white">{ordine.customerName}</td>
-                  <td className="p-5 text-slate-400">{ordine.date}</td>
-                  <td className="p-5 font-black text-white">€ {ordine.total.toLocaleString()}</td>
-                  <td className="p-5">
-                    <span className={`px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest ${
-                      ordine.status === 'Consegnato' || ordine.status === 'Fatturato' ? 'bg-emerald-500/10 text-emerald-400' :
-                      ordine.status === 'Annullato' ? 'bg-rose-500/10 text-rose-400' : 'bg-blue-500/10 text-blue-400'
-                    }`}>
-                      {ordine.status}
-                    </span>
-                  </td>
-                  <td className="p-5 text-right">
+      <FilterBar
+        value={search} onChange={setSearch}
+        filters={['Tutti', 'Nuovo', 'In Lavorazione', 'Spedito', 'Consegnato', 'Annullato']}
+        currentFilter={filter} onFilterChange={setFilter}
+        placeholder="Cerca cliente o ID ordine..."
+      />
+
+      <div className="space-y-8">
+        {Object.entries(groupedOrders).sort((a:any, b:any) => b[0].localeCompare(a[0])).map(([month, monthOrders]: any) => (
+          <div key={month} className="space-y-4">
+            <h3 className="text-sm font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
+                <Calendar size={14} /> {new Date(month).toLocaleDateString('it-IT', { month: 'long', year: 'numeric' })}
+            </h3>
+            <Card className="!p-0 overflow-hidden">
+                <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse">
+                    <thead>
+                    <tr className="bg-white/5 text-slate-500 text-[10px] font-black uppercase tracking-widest border-b border-white/5">
+                        <th className="p-5">ID Ordine</th>
+                        <th className="p-5">Cliente</th>
+                        <th className="p-5">Data</th>
+                        <th className="p-5">Importo</th>
+                        <th className="p-5">Stato</th>
+                        <th className="p-5 text-right">Azioni</th>
+                    </tr>
+                    </thead>
+                    <tbody className="text-sm relative">
+                    {monthOrders.map((ordine: any) => (
+                        <tr
+                            key={ordine.id}
+                            className="border-b border-white/5 hover:bg-white/[0.02] transition-colors group"
+                            onMouseEnter={() => setHoveredOrder(ordine)}
+                            onMouseLeave={() => setHoveredOrder(null)}
+                        >
+                        <td className="p-5 font-mono text-purple-400 font-bold">{ordine.id}</td>
+                        <td className="p-5 font-bold text-white">{ordine.customerName}</td>
+                        <td className="p-5 text-slate-400">{ordine.date}</td>
+                        <td className="p-5 font-black text-white">€ {ordine.total.toLocaleString()}</td>
+                        <td className="p-5">
+                            <span className={`px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest ${
+                            ordine.status === 'Consegnato' || ordine.status === 'Fatturato' ? 'bg-emerald-500/10 text-emerald-400' :
+                            ordine.status === 'Annullato' ? 'bg-rose-500/10 text-rose-400' : 'bg-blue-500/10 text-blue-400'
+                            }`}>
+                            {ordine.status}
+                            </span>
+                        </td>
+                        <td className="p-5 text-right">
                     <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-all duration-300 translate-x-2 group-hover:translate-x-0">
                       {ordine.status !== 'Fatturato' && ordine.status !== 'Consegnato' && ordine.status !== 'Annullato' && (
                         <>
@@ -869,14 +940,17 @@ export function OrdiniView() {
                       >
                         <Trash2 size={16} />
                       </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </Card>
+                            </div>
+                        </td>
+                        </tr>
+                    ))}
+                    </tbody>
+                </table>
+                </div>
+            </Card>
+          </div>
+        ))}
+      </div>
 
       <AnimatePresence>
         {hoveredOrder && (
@@ -1056,6 +1130,172 @@ function CategorizzazioneSection() {
     );
   }
 
+// --- FINANCIALS (Incassi & Pagamenti) ---
+export function FinancialsView() {
+    const { transactions, addTransaction, deleteTransaction } = useStore();
+    const [showForm, setShowForm] = useState(false);
+    const [formData, setFormData] = useState<Partial<Transaction>>({
+        type: 'Entrata', date: new Date().toISOString().split('T')[0], method: 'Bonifico', category: 'Vendita'
+    });
+
+    const totalIncome = transactions.filter(t => t.type === 'Entrata').reduce((acc, t) => acc + t.amount, 0);
+    const totalOutcome = transactions.filter(t => t.type === 'Uscita').reduce((acc, t) => acc + t.amount, 0);
+
+    const handleSubmit = (e: React.FormEvent) => {
+        e.preventDefault();
+        addTransaction(formData as Transaction);
+        setShowForm(false);
+    };
+
+    return (
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-8">
+            <header className="flex justify-between items-center">
+                <div>
+                    <h2 className="text-3xl font-black text-white tracking-tight">Finanze</h2>
+                    <p className="text-slate-400 text-sm font-medium mt-1">Gestione flussi di cassa, incassi e pagamenti.</p>
+                </div>
+                <button
+                    onClick={() => setShowForm(true)}
+                    className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl flex items-center gap-2 shadow-lg shadow-emerald-600/20"
+                >
+                    <Plus size={20} /> Nuova Operazione
+                </button>
+            </header>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <StatCard title="Totale Incassi" value={`€ ${totalIncome.toLocaleString()}`} icon={ArrowUpRight} color="text-emerald-400" />
+                <StatCard title="Totale Pagamenti" value={`€ ${totalOutcome.toLocaleString()}`} icon={ArrowRight} color="text-rose-400" />
+                <StatCard title="Bilancio Netto" value={`€ ${(totalIncome - totalOutcome).toLocaleString()}`} icon={Wallet} color="text-blue-400" />
+            </div>
+
+            <Card className="!p-0 overflow-hidden">
+                <div className="overflow-x-auto">
+                    <table className="w-full text-left border-collapse">
+                        <thead>
+                            <tr className="bg-white/5 text-slate-500 text-[10px] font-black uppercase tracking-widest border-b border-white/5">
+                                <th className="p-5">Data</th>
+                                <th className="p-5">Tipo</th>
+                                <th className="p-5">Beneficiario/Cliente</th>
+                                <th className="p-5">Categoria</th>
+                                <th className="p-5">Metodo</th>
+                                <th className="p-5">Importo</th>
+                                <th className="p-5 text-right">Azioni</th>
+                            </tr>
+                        </thead>
+                        <tbody className="text-sm">
+                            {transactions.sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime()).map((tx) => (
+                                <tr key={tx.id} className="border-b border-white/5 hover:bg-white/[0.02] transition-colors group">
+                                    <td className="p-5 text-slate-400 font-mono">{tx.date}</td>
+                                    <td className="p-5">
+                                        <span className={`px-2 py-1 rounded-lg text-[10px] font-black uppercase ${tx.type === 'Entrata' ? 'bg-emerald-500/10 text-emerald-400' : 'bg-rose-500/10 text-rose-400'}`}>
+                                            {tx.type === 'Entrata' ? 'Incasso' : 'Pagamento'}
+                                        </span>
+                                    </td>
+                                    <td className="p-5 font-bold text-white">{tx.recipient}</td>
+                                    <td className="p-5 text-slate-400">{tx.category}</td>
+                                    <td className="p-5">
+                                        <div className="flex items-center gap-2 text-slate-300">
+                                            <CreditCard size={14} />
+                                            {tx.method}
+                                        </div>
+                                    </td>
+                                    <td className={`p-5 font-black ${tx.type === 'Entrata' ? 'text-emerald-400' : 'text-rose-400'}`}>
+                                        {tx.type === 'Entrata' ? '+' : '-'} € {tx.amount.toLocaleString()}
+                                    </td>
+                                    <td className="p-5 text-right">
+                                        <button onClick={() => deleteTransaction(tx.id)} className="p-2 text-slate-500 hover:text-rose-500 opacity-0 group-hover:opacity-100 transition-all"><Trash2 size={16} /></button>
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+            </Card>
+
+            <AnimatePresence>
+                {showForm && (
+                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+                        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setShowForm(false)} className="absolute inset-0 bg-slate-950/80 backdrop-blur-sm" />
+                        <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }} className="relative w-full max-w-md bg-slate-900 border border-white/10 rounded-3xl shadow-2xl p-8">
+                            <h3 className="text-xl font-black text-white mb-6">Nuova Transazione</h3>
+                            <form onSubmit={handleSubmit} className="space-y-4">
+                                <div className="grid grid-cols-2 gap-4">
+                                    <button type="button" onClick={() => setFormData({...formData, type: 'Entrata'})} className={`py-3 rounded-xl font-bold transition-all ${formData.type === 'Entrata' ? 'bg-emerald-600 text-white' : 'bg-slate-800 text-slate-400'}`}>Incasso</button>
+                                    <button type="button" onClick={() => setFormData({...formData, type: 'Uscita'})} className={`py-3 rounded-xl font-bold transition-all ${formData.type === 'Uscita' ? 'bg-rose-600 text-white' : 'bg-slate-800 text-slate-400'}`}>Pagamento</button>
+                                </div>
+                                <input type="date" required value={formData.date} onChange={e => setFormData({...formData, date: e.target.value})} className="w-full bg-slate-950/50 border border-white/5 rounded-xl px-4 py-3 text-white" />
+                                <input type="text" required placeholder="Beneficiario / Cliente" value={formData.recipient} onChange={e => setFormData({...formData, recipient: e.target.value})} className="w-full bg-slate-950/50 border border-white/5 rounded-xl px-4 py-3 text-white" />
+                                <div className="grid grid-cols-2 gap-4">
+                                    <input type="number" required placeholder="Importo €" value={formData.amount} onChange={e => setFormData({...formData, amount: Number(e.target.value)})} className="w-full bg-slate-950/50 border border-white/5 rounded-xl px-4 py-3 text-white" />
+                                    <select value={formData.method} onChange={e => setFormData({...formData, method: e.target.value as any})} className="w-full bg-slate-950/50 border border-white/5 rounded-xl px-4 py-3 text-white">
+                                        <option value="Bonifico">Bonifico</option>
+                                        <option value="Contanti">Contanti</option>
+                                        <option value="Carta">Carta</option>
+                                    </select>
+                                </div>
+                                <input type="text" placeholder="Categoria (es. Affitto, Vendita...)" value={formData.category} onChange={e => setFormData({...formData, category: e.target.value})} className="w-full bg-slate-950/50 border border-white/5 rounded-xl px-4 py-3 text-white" />
+                                <button type="submit" className="w-full py-4 bg-purple-600 hover:bg-purple-500 text-white font-black rounded-xl shadow-lg transition-all">Registra Operazione</button>
+                            </form>
+                        </motion.div>
+                    </div>
+                )}
+            </AnimatePresence>
+        </motion.div>
+    );
+}
+
+// --- MOVIMENTI (Archivio Carichi/Scarichi) ---
+export function MovimentiView() {
+    const { documents } = useStore();
+    const movimenti = documents.filter(d => ['Carico Libero', 'Fattura Fornitore', 'DDT Fornitore', 'Fattura', 'DDT'].includes(d.type));
+
+    return (
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-8">
+            <header>
+                <h2 className="text-3xl font-black text-white tracking-tight">Storico Movimenti</h2>
+                <p className="text-slate-400 text-sm font-medium mt-1">Archivio completo di tutti i carichi e scarichi di magazzino.</p>
+            </header>
+
+            <Card className="!p-0 overflow-hidden">
+                <div className="overflow-x-auto">
+                    <table className="w-full text-left border-collapse">
+                        <thead>
+                            <tr className="bg-white/5 text-slate-500 text-[10px] font-black uppercase tracking-widest border-b border-white/5">
+                                <th className="p-5">Data</th>
+                                <th className="p-5">Tipo</th>
+                                <th className="p-5">Documento</th>
+                                <th className="p-5">Dettagli Articoli</th>
+                                <th className="p-5 text-right">Verso</th>
+                            </tr>
+                        </thead>
+                        <tbody className="text-sm">
+                            {movimenti.sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime()).map((m) => (
+                                <tr key={m.id} className="border-b border-white/5 hover:bg-white/[0.02] transition-colors">
+                                    <td className="p-5 text-slate-400 font-mono">{m.date}</td>
+                                    <td className="p-5 font-bold text-white">{m.type}</td>
+                                    <td className="p-5 text-slate-300 font-mono">{m.number}</td>
+                                    <td className="p-5">
+                                        <div className="flex flex-wrap gap-1">
+                                            {m.items.map((it, i) => (
+                                                <span key={i} className="px-2 py-0.5 bg-white/5 rounded text-[10px] text-slate-400 border border-white/5">{it.sku} ({it.quantity})</span>
+                                            ))}
+                                        </div>
+                                    </td>
+                                    <td className="p-5 text-right">
+                                        <span className={`px-2 py-1 rounded-lg text-[10px] font-black uppercase ${m.direction === 'Entrata' ? 'text-emerald-400 bg-emerald-400/10' : 'text-blue-400 bg-blue-400/10'}`}>
+                                            {m.direction}
+                                        </span>
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+            </Card>
+        </motion.div>
+    );
+}
+
 // --- IMPOSTAZIONI ---
 export function ImpostazioniView() {
     const { resetApp, undo, redo, canUndo, canRedo } = useStore();
@@ -1141,12 +1381,24 @@ export function ImpostazioniView() {
 
 // --- DOCUMENTI ---
 export function DocumentiView() {
-  const { documents, deleteDocument, addDocument, addOrder, updateDocument } = useStore();
+  const { documents, deleteDocument, addDocument, addOrder, updateDocument, convertQuoteToOrder } = useStore();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingDoc, setEditingDoc] = useState<AppDocument | undefined>(undefined);
+  const [search, setSearch] = useState('');
   const [filter, setFilter] = useState('Tutti');
 
-  const filteredDocs = documents.filter(doc => filter === 'Tutti' || doc.type === filter);
+  const filteredDocs = documents.filter(doc => {
+      const matchesSearch = doc.recipient.toLowerCase().includes(search.toLowerCase()) || doc.number.toLowerCase().includes(search.toLowerCase());
+      const matchesFilter = filter === 'Tutti' || doc.type === filter;
+      return matchesSearch && matchesFilter;
+  });
+
+  const groupedDocs = filteredDocs.reduce((acc: any, d) => {
+      const month = d.date.slice(0, 7);
+      if (!acc[month]) acc[month] = [];
+      acc[month].push(d);
+      return acc;
+  }, {});
 
   const handleEdit = (doc: AppDocument) => {
     setEditingDoc(doc);
@@ -1227,47 +1479,48 @@ export function DocumentiView() {
         </button>
       </header>
 
-      <div className="flex gap-4 border-b border-white/5 mb-6">
-        {['Tutti', 'Preventivo', 'DDT', 'Fattura'].map((tab) => (
-          <button
-            key={tab}
-            onClick={() => setFilter(tab)}
-            className={`pb-3 px-2 text-xs font-black uppercase tracking-widest transition-all ${filter === tab ? 'border-b-2 border-purple-500 text-purple-400' : 'text-slate-500 hover:text-slate-300'}`}
-          >
-            {tab === 'Preventivo' ? 'Preventivi' : tab === 'Fattura' ? 'Fatture' : tab}
-          </button>
-        ))}
-      </div>
+      <FilterBar
+        value={search} onChange={setSearch}
+        filters={['Tutti', 'Preventivo', 'DDT', 'Fattura']}
+        currentFilter={filter} onFilterChange={setFilter}
+        placeholder="Cerca numero documento o destinatario..."
+      />
 
-      <Card className="!p-0 overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse">
-            <thead>
-              <tr className="bg-white/5 text-slate-500 text-[10px] font-black uppercase tracking-widest border-b border-white/5">
-                <th className="p-5">Tipo</th>
-                <th className="p-5">Numero</th>
-                <th className="p-5">Data</th>
-                <th className="p-5">Intestatario</th>
-                <th className="p-5">Importo</th>
-                <th className="p-5 text-right">Stato</th>
-              </tr>
-            </thead>
-            <tbody className="text-sm">
-              {filteredDocs.map((doc) => (
-                <tr key={doc.id} className="border-b border-white/5 hover:bg-white/[0.02] transition-colors group">
-                  <td className="p-5">
-                    <div className="flex items-center gap-2">
-                        <span className={`w-2 h-2 rounded-full ${doc.direction === 'Entrata' ? 'bg-emerald-400' : 'bg-blue-400'}`} />
-                        <span className="font-bold text-white">{doc.type}</span>
-                    </div>
-                  </td>
-                  <td className="p-5 font-mono text-slate-400">{doc.number}</td>
-                  <td className="p-5 text-slate-400">{doc.date}</td>
-                  <td className="p-5 font-medium text-slate-200">{doc.recipient}</td>
-                  <td className="p-5 font-bold text-white">
-                    {typeof doc.amount === 'number' ? `€ ${doc.amount.toLocaleString()}` : doc.amount}
-                  </td>
-                  <td className="p-5 text-right flex items-center justify-end gap-3">
+      <div className="space-y-8">
+        {Object.entries(groupedDocs).sort((a:any, b:any) => b[0].localeCompare(a[0])).map(([month, monthDocs]: any) => (
+          <div key={month} className="space-y-4">
+            <h3 className="text-sm font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
+                <Calendar size={14} /> {new Date(month).toLocaleDateString('it-IT', { month: 'long', year: 'numeric' })}
+            </h3>
+            <Card className="!p-0 overflow-hidden">
+                <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse">
+                    <thead>
+                    <tr className="bg-white/5 text-slate-500 text-[10px] font-black uppercase tracking-widest border-b border-white/5">
+                        <th className="p-5">Tipo</th>
+                        <th className="p-5">Numero</th>
+                        <th className="p-5">Data</th>
+                        <th className="p-5">Intestatario</th>
+                        <th className="p-5">Importo</th>
+                        <th className="p-5 text-right">Stato</th>
+                    </tr>
+                    </thead>
+                    <tbody className="text-sm">
+                    {monthDocs.map((doc: any) => (
+                        <tr key={doc.id} className="border-b border-white/5 hover:bg-white/[0.02] transition-colors group">
+                        <td className="p-5">
+                            <div className="flex items-center gap-2">
+                                <span className={`w-2 h-2 rounded-full ${doc.direction === 'Entrata' ? 'bg-emerald-400' : 'bg-blue-400'}`} />
+                                <span className="font-bold text-white">{doc.type}</span>
+                            </div>
+                        </td>
+                        <td className="p-5 font-mono text-slate-400">{doc.number}</td>
+                        <td className="p-5 text-slate-400">{doc.date}</td>
+                        <td className="p-5 font-medium text-slate-200">{doc.recipient}</td>
+                        <td className="p-5 font-bold text-white">
+                            {typeof doc.amount === 'number' ? `€ ${doc.amount.toLocaleString()}` : doc.amount}
+                        </td>
+                        <td className="p-5 text-right flex items-center justify-end gap-3">
                     <span className={`px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest ${
                       doc.status === 'Pagata' || doc.status === 'Consegnato' || doc.status === 'In Ordine' || doc.status === 'Convertito' ? 'bg-emerald-500/10 text-emerald-400' : 'bg-amber-500/10 text-amber-400'
                     }`}>
@@ -1277,7 +1530,7 @@ export function DocumentiView() {
                         {doc.status !== 'In Ordine' && doc.status !== 'Convertito' && (
                             <>
                                 {doc.type === 'Preventivo' && (
-                                    <button onClick={() => handleConvert(doc, 'Order')} title="Converti in Ordine" className="p-2 bg-slate-800 hover:bg-purple-500/20 text-purple-400 rounded-lg"><ArrowRight size={14}/></button>
+                                    <button onClick={() => convertQuoteToOrder(doc)} title="Converti in Ordine" className="p-2 bg-slate-800 hover:bg-purple-500/20 text-purple-400 rounded-lg"><ArrowRight size={14}/></button>
                                 )}
                                 {(doc.type === 'Preventivo' || doc.type === 'DDT') && (
                                     <button onClick={() => handleConvert(doc, 'Fattura')} title="Converti in Fattura" className="p-2 bg-slate-800 hover:bg-emerald-500/20 text-emerald-400 rounded-lg"><FileText size={14}/></button>
@@ -1290,14 +1543,17 @@ export function DocumentiView() {
                         {(doc.status === 'In Ordine' || doc.status === 'Convertito') && (
                              <button onClick={() => handleDuplicate(doc)} title="Duplica" className="p-2 bg-slate-800 hover:bg-purple-500/20 text-purple-400 rounded-lg"><Copy size={14}/></button>
                         )}
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </Card>
+                            </div>
+                        </td>
+                        </tr>
+                    ))}
+                    </tbody>
+                </table>
+                </div>
+            </Card>
+          </div>
+        ))}
+      </div>
       <DocumentModal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}

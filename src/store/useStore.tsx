@@ -20,7 +20,19 @@ export interface StockItem {
   minStock: number;
   price: number;
   status: 'Ottimo' | 'In Esaurimento' | 'Riordinare';
-  imageUrl?: string;
+  images: string[];
+}
+
+export interface Transaction {
+  id: string;
+  type: 'Entrata' | 'Uscita'; // Incasso | Pagamento
+  date: string;
+  amount: number;
+  recipient: string;
+  category: string;
+  method: 'Bonifico' | 'Contanti' | 'Carta' | 'Altro';
+  referenceId?: string; // ID Documento o Ordine legato
+  notes?: string;
 }
 
 export interface Batch {
@@ -82,6 +94,7 @@ interface AppData {
   customers: Customer[];
   orders: Order[];
   categories: Category[];
+  transactions: Transaction[];
 }
 
 interface StoreContextType extends AppData {
@@ -116,6 +129,13 @@ interface StoreContextType extends AppData {
   updateDocument: (id: number, updates: Partial<Document>) => void;
   deleteDocument: (id: number) => void;
 
+  // Transactions
+  addTransaction: (tx: Transaction) => void;
+  deleteTransaction: (id: string) => void;
+
+  // Special Conversions
+  convertQuoteToOrder: (quote: Document) => void;
+
   // Categories
   addCategory: (cat: Category) => void;
   updateCategory: (id: string, updates: Partial<Category>) => void;
@@ -142,13 +162,13 @@ const initialData: AppData = {
     { id: 'deep-1', name: 'Profumi', parentId: 'sub-1', level: 3 },
   ],
   stock: [
-    { sku: 'MP-ALC-01', name: 'Alcol Etilico 96°', category: 'Materie Prime', quantity: 250, committed: 0, unit: 'L', minStock: 50, price: 5, status: 'Ottimo' },
-    { sku: 'MP-ESS-VNL', name: 'Essenza Vaniglia Madagascar', category: 'Materie Prime', subcategory: 'Essenza', quantity: 2.5, committed: 0, unit: 'L', minStock: 5, price: 450, status: 'In Esaurimento' },
-    { sku: 'PKG-BTL-50', name: 'Flacone Vetro 50ml', category: 'Packaging', quantity: 1200, committed: 0, unit: 'pz', minStock: 200, price: 0.8, status: 'Ottimo' },
-    { sku: 'PF-OUD-100', name: 'Oud & Bergamot 100ml', category: 'Prodotti Finiti', subcategory: 'Essenza', deepcategory: 'Profumi', quantity: 45, committed: 10, unit: 'pz', minStock: 50, price: 120, status: 'Riordinare', imageUrl: 'https://picsum.photos/seed/perfume1/400/400' },
-    { sku: 'PF-VNL-50', name: 'Vanilla Noir 50ml', category: 'Prodotti Finiti', quantity: 20, committed: 0, unit: 'pz', minStock: 10, price: 145, status: 'Ottimo', imageUrl: 'https://picsum.photos/seed/perfume2/400/400' },
-    { sku: 'PF-CTR-100', name: 'Citrus Bloom 100ml', category: 'Prodotti Finiti', quantity: 80, committed: 40, unit: 'pz', minStock: 30, price: 85, status: 'Ottimo', imageUrl: 'https://picsum.photos/seed/perfume3/400/400' },
-    { sku: 'PF-AMB-100', name: 'Amber Wood 100ml', category: 'Prodotti Finiti', quantity: 15, committed: 0, unit: 'pz', minStock: 20, price: 130, status: 'Riordinare', imageUrl: 'https://picsum.photos/seed/perfume4/400/400' },
+    { sku: 'MP-ALC-01', name: 'Alcol Etilico 96°', category: 'Materie Prime', quantity: 250, committed: 0, unit: 'L', minStock: 50, price: 5, status: 'Ottimo', images: [] },
+    { sku: 'MP-ESS-VNL', name: 'Essenza Vaniglia Madagascar', category: 'Materie Prime', subcategory: 'Essenza', quantity: 2.5, committed: 0, unit: 'L', minStock: 5, price: 450, status: 'In Esaurimento', images: [] },
+    { sku: 'PKG-BTL-50', name: 'Flacone Vetro 50ml', category: 'Packaging', quantity: 1200, committed: 0, unit: 'pz', minStock: 200, price: 0.8, status: 'Ottimo', images: [] },
+    { sku: 'PF-OUD-100', name: 'Oud & Bergamot 100ml', category: 'Prodotti Finiti', subcategory: 'Essenza', deepcategory: 'Profumi', quantity: 45, committed: 10, unit: 'pz', minStock: 50, price: 120, status: 'Riordinare', images: ['https://picsum.photos/seed/perfume1/400/400'] },
+    { sku: 'PF-VNL-50', name: 'Vanilla Noir 50ml', category: 'Prodotti Finiti', quantity: 20, committed: 0, unit: 'pz', minStock: 10, price: 145, status: 'Ottimo', images: ['https://picsum.photos/seed/perfume2/400/400'] },
+    { sku: 'PF-CTR-100', name: 'Citrus Bloom 100ml', category: 'Prodotti Finiti', quantity: 80, committed: 40, unit: 'pz', minStock: 30, price: 85, status: 'Ottimo', images: ['https://picsum.photos/seed/perfume3/400/400'] },
+    { sku: 'PF-AMB-100', name: 'Amber Wood 100ml', category: 'Prodotti Finiti', quantity: 15, committed: 0, unit: 'pz', minStock: 20, price: 130, status: 'Riordinare', images: ['https://picsum.photos/seed/perfume4/400/400'] },
   ],
   batches: [
     { id: 'LT-2023-10', name: 'Oud & Bergamot', phase: 'Macerazione', startDate: '2023-10-10', endDate: '2023-11-10', status: 'In Corso' },
@@ -190,6 +210,9 @@ const initialData: AppData = {
     { id: 2, type: 'DDT', direction: 'Uscita', number: 'DDT-2023/89', date: '2023-10-25', recipient: 'Boutique Roma', amount: 0, status: 'Consegnato', items: [] },
     { id: 3, type: 'Preventivo', direction: 'Uscita', number: 'PRV-2023/112', date: '2023-10-24', recipient: 'Hotel Excelsior', amount: 3400, status: 'In Attesa', items: [{ sku: 'PF-CTR-100', name: 'Citrus Bloom 100ml', quantity: 40, price: 85 }] },
   ],
+  transactions: [
+    { id: 'TX-1', type: 'Entrata', date: '2023-10-26', amount: 1250, recipient: 'Profumeria Centrale', category: 'Vendita Prodotti', method: 'Bonifico', referenceId: '1' }
+  ]
 };
 
 const StoreContext = createContext<StoreContextType | undefined>(undefined);
@@ -200,7 +223,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [redoStack, setRedoStack] = useState<AppData[]>([]);
 
   // Deconstruct for easy access
-  const { stock, batches, suppliers, customers, orders, documents, categories } = data;
+  const { stock, batches, suppliers, customers, orders, documents, categories, transactions } = data;
 
   // Persistence
   useEffect(() => {
@@ -251,7 +274,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         customers: [],
         orders: [],
         documents: [],
-        categories: []
+        categories: [],
+        transactions: []
       });
     } else {
       pushToHistory(initialData);
@@ -267,7 +291,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   // ACTIONS
   const addStockItem = (item: StockItem) => {
-    pushToHistory({ ...data, stock: [...stock, { ...item, committed: item.committed || 0 }] });
+    pushToHistory({ ...data, stock: [...stock, { ...item, committed: item.committed || 0, images: item.images || [] }] });
   };
 
   const updateStockItem = (sku: string, updates: Partial<StockItem>) => {
@@ -373,6 +397,41 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   const deleteDocument = (id: number) => pushToHistory({ ...data, documents: documents.filter(d => d.id !== id) });
 
+  const addTransaction = (tx: Transaction) => {
+    pushToHistory({ ...data, transactions: [...transactions, { ...tx, id: `TX-${Date.now()}` }] });
+  };
+
+  const deleteTransaction = (id: string) => {
+    pushToHistory({ ...data, transactions: transactions.filter(t => t.id !== id) });
+  };
+
+  const convertQuoteToOrder = (quote: Document) => {
+    const orderId = `ORD-${Date.now().toString().slice(-6)}`;
+    const newOrder: Order = {
+        id: orderId,
+        customerId: 0,
+        customerName: quote.recipient,
+        date: new Date().toISOString().split('T')[0],
+        status: 'Nuovo',
+        items: quote.items,
+        total: quote.amount
+    };
+
+    let newStock = [...stock];
+    newOrder.items.forEach(item => {
+        newStock = newStock.map(s => s.sku === item.sku ? { ...s, committed: (s.committed || 0) + item.quantity } : s);
+    });
+
+    const newDocs = documents.map(d => d.id === quote.id ? { ...d, status: 'In Ordine' } : d);
+
+    pushToHistory({
+        ...data,
+        orders: [...orders, newOrder],
+        documents: newDocs,
+        stock: newStock
+    });
+  };
+
   const addCategory = (cat: Category) => pushToHistory({ ...data, categories: [...categories, { ...cat, id: `cat-${Date.now()}` }] });
   const updateCategory = (id: string, updates: Partial<Category>) => {
     pushToHistory({ ...data, categories: categories.map(c => c.id === id ? { ...c, ...updates } : c) });
@@ -410,6 +469,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       addCustomer, updateCustomer, deleteCustomer,
       addOrder, updateOrder, deleteOrder,
       addDocument, updateDocument, deleteDocument,
+      addTransaction, deleteTransaction,
+      convertQuoteToOrder,
       addCategory, updateCategory, deleteCategory,
       undo, redo, canUndo: history.length > 0, canRedo: redoStack.length > 0,
       resetApp, exportData, importData

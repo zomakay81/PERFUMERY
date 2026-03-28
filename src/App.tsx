@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { Menu, X, LayoutDashboard, FlaskConical, Package, BookImage, Users, FileText, Sparkles, ShoppingCart, Truck, Settings } from 'lucide-react';
-import { DashboardView, ProduzioneView, MagazzinoView, CataloghiView, FornitoriView, DocumentiView, ClientiView, OrdiniView, ImpostazioniView } from './components/views';
+import { Menu, X, LayoutDashboard, FlaskConical, Package, BookImage, Users, FileText, Sparkles, ShoppingCart, Truck, Settings, History, Wallet } from 'lucide-react';
+import { DashboardView, ProduzioneView, MagazzinoView, CataloghiView, FornitoriView, DocumentiView, ClientiView, OrdiniView, ImpostazioniView, MovimentiView, FinancialsView } from './components/views';
 import { StoreProvider } from './store/useStore';
 import { motion, AnimatePresence } from 'motion/react';
 import { AIChat } from './components/ai/AIChat';
@@ -18,6 +18,8 @@ export default function App() {
     { id: 'ordini', label: 'Ordini', icon: ShoppingCart },
     { id: 'fornitori', label: 'Fornitori', icon: Truck },
     { id: 'documenti', label: 'Documenti', icon: FileText },
+    { id: 'movimenti', label: 'Movimenti', icon: History },
+    { id: 'finanze', label: 'Finanze', icon: Wallet },
     { id: 'impostazioni', label: 'Impostazioni', icon: Settings },
   ];
 
@@ -31,6 +33,8 @@ export default function App() {
       case 'ordini': return <OrdiniView />;
       case 'fornitori': return <FornitoriView />;
       case 'documenti': return <DocumentiView />;
+      case 'movimenti': return <MovimentiView />;
+      case 'finanze': return <FinancialsView />;
       case 'impostazioni': return <ImpostazioniView />;
       default: return <DashboardView />;
     }
