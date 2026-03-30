@@ -145,6 +145,7 @@ interface StoreContextType extends AppData {
 
   // Special Conversions
   convertQuoteToOrder: (quote: Document) => void;
+  convertDocToInvoice: (source: Document) => void;
 
   // Categories
   addCategory: (cat: Category) => void;
@@ -534,6 +535,50 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     });
   };
 
+  const convertDocToInvoice = (source: Document) => {
+    const invoiceId = Date.now();
+    const newInvoice: Document = {
+      ...source,
+      id: invoiceId,
+      type: 'Fattura',
+      number: `FPA-${source.number.split('-').pop()}`,
+      date: new Date().toISOString().split('T')[0],
+      status: 'Emessa',
+      paidAmount: 0,
+      sourceOrderId: source.sourceOrderId
+    };
+
+    let newStock = [...stock];
+    let newOrders = [...orders];
+
+    // If source was a Quote, it was purely administrative.
+    // Converting it directly to Invoice should behave like adding a new Invoice: decrease stock.
+    // However, if converting from DDT, stock was already decreased by the DDT.
+    if (source.type === 'Preventivo') {
+        source.items.forEach(item => {
+          newStock = newStock.map(s => {
+            if (s.sku === item.sku) {
+                const nq = s.quantity - item.quantity;
+                return { ...s, quantity: nq, status: getStockStatus(nq, s.minStock) };
+            }
+            return s;
+          });
+        });
+    }
+
+    const newDocs = [
+      ...documents.map(d => d.id === source.id ? { ...d, status: 'Convertito' } : d),
+      newInvoice
+    ];
+
+    pushToHistory({
+      ...data,
+      documents: newDocs,
+      stock: newStock,
+      orders: newOrders
+    });
+  };
+
   const addCategory = (cat: Category) => pushToHistory({ ...data, categories: [...categories, { ...cat, id: `cat-${Date.now()}` }] });
   const updateCategory = (id: string, updates: Partial<Category>) => {
     pushToHistory({ ...data, categories: categories.map(c => c.id === id ? { ...c, ...updates } : c) });
@@ -572,7 +617,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       addOrder, updateOrder, deleteOrder,
       addDocument, updateDocument, deleteDocument,
       addTransaction, deleteTransaction,
-      convertQuoteToOrder,
+      convertQuoteToOrder, convertDocToInvoice,
       addCategory, updateCategory, deleteCategory,
       undo, redo, canUndo: history.length > 0, canRedo: redoStack.length > 0,
       resetApp, exportData, importData,

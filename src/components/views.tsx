@@ -5,7 +5,7 @@ import {
   TrendingUp, Plus, Search, Filter, Download, FileText, Package,
   ArrowUpRight, ArrowRight, Beaker, ShoppingBag, Truck, FlaskConical, Edit2, Trash2, Star,
   ChevronRight, Settings, Undo2, Redo2, Layers, Copy, Wallet, CreditCard, History, Calendar,
-  ChevronUp, ChevronDown
+  ChevronUp, ChevronDown, X
 } from 'lucide-react';
 import { useStore, Supplier, Customer, Order, Batch, StockItem, Document as AppDocument, Category, Transaction } from '../store/useStore';
 import { SupplierModal } from './SupplierModal';
@@ -1507,6 +1507,7 @@ export function MovimentiView() {
             </div>
 
             <DocumentDetailModal
+                key={selectedDoc?.id || 'none'}
                 isOpen={isDetailModalOpen}
                 onClose={() => setIsDetailModalOpen(false)}
                 document={selectedDoc}
@@ -1594,7 +1595,7 @@ function DocumentDetailModal({ isOpen, onClose, document: doc }: { isOpen: boole
                                         <div key={i} className="flex items-center justify-between p-4 bg-white/5 rounded-2xl border border-white/5">
                                             <div className="flex items-center gap-4">
                                                 <div className="w-10 h-10 rounded-xl bg-slate-800 flex items-center justify-center overflow-hidden">
-                                                    <img src={stock.find(s => s.sku === item.sku)?.images[0] || 'https://picsum.photos/seed/placeholder/100/100'} className="w-full h-full object-cover" />
+                                                    <img src={stock.find(s => s.sku === item.sku)?.images?.[0] || 'https://picsum.photos/seed/placeholder/100/100'} className="w-full h-full object-cover" />
                                                 </div>
                                                 <div>
                                                     <p className="text-sm font-bold text-white">{item.name}</p>
@@ -1724,7 +1725,7 @@ export function ImpostazioniView() {
 
 // --- DOCUMENTI ---
 export function DocumentiView() {
-  const { documents, deleteDocument, addDocument, addOrder, updateDocument, convertQuoteToOrder, addTransaction } = useStore();
+  const { documents, deleteDocument, addDocument, addOrder, updateDocument, convertQuoteToOrder, convertDocToInvoice, addTransaction } = useStore();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
   const [selectedDocForPayment, setSelectedDocForPayment] = useState<AppDocument | null>(null);
@@ -1782,39 +1783,6 @@ export function DocumentiView() {
   const handleRecordPayment = (doc: AppDocument) => {
     setSelectedDocForPayment(doc);
     setIsPaymentModalOpen(true);
-  };
-
-  const handleConvert = (doc: AppDocument, targetType: 'Fattura' | 'Order') => {
-    if (doc.status === 'Convertito' || doc.status === 'In Ordine') {
-        alert("Documento già convertito!");
-        return;
-    }
-    if (targetType === 'Fattura') {
-        const newDoc = {
-            ...doc,
-            id: Date.now(),
-            type: 'Fattura' as any,
-            number: `FPA-${doc.number.split('-').pop()}`,
-            date: new Date().toISOString().split('T')[0],
-            status: 'Emessa',
-            notes: `Da ${doc.type} ${doc.number}`
-        };
-        addDocument(newDoc);
-        updateDocument(doc.id, { status: 'Convertito' });
-    } else if (targetType === 'Order') {
-        const newOrder: Order = {
-            id: `ORD-${Date.now().toString().slice(-4)}`,
-            customerId: 0, // Should be linked properly
-            customerName: doc.recipient,
-            date: new Date().toISOString().split('T')[0],
-            status: 'Nuovo',
-            items: doc.items,
-            total: doc.amount
-        };
-        addOrder(newOrder);
-        // Update quote status to "In Ordine"
-        updateDocument(doc.id, { status: 'In Ordine' });
-    }
   };
 
   return (
@@ -1892,7 +1860,7 @@ export function DocumentiView() {
                                     <button onClick={() => convertQuoteToOrder(doc)} title="Converti in Ordine" className="p-2 bg-slate-800 hover:bg-purple-500/20 text-purple-400 rounded-lg"><ArrowRight size={14}/></button>
                                 )}
                                 {(doc.type === 'Preventivo' || doc.type === 'DDT') && (
-                                    <button onClick={() => handleConvert(doc, 'Fattura')} title="Converti in Fattura" className="p-2 bg-slate-800 hover:bg-emerald-500/20 text-emerald-400 rounded-lg"><FileText size={14}/></button>
+                                    <button onClick={() => convertDocToInvoice(doc)} title="Converti in Fattura" className="p-2 bg-slate-800 hover:bg-emerald-500/20 text-emerald-400 rounded-lg"><FileText size={14}/></button>
                                 )}
                                 {(doc.type === 'Preventivo' || doc.type === 'Fattura') && doc.status !== 'Convertito' && (
                                     <button 
