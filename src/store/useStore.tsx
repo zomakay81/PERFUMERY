@@ -32,6 +32,9 @@ export interface Transaction {
   category: string;
   method: 'Bonifico' | 'Contanti' | 'Carta' | 'Altro';
   referenceId?: string; // ID Documento o Ordine legato
+  docType?: string;
+  docNumber?: string;
+  docTotalAmount?: number;
   notes?: string;
 }
 
@@ -60,6 +63,10 @@ export interface Customer {
   email: string;
   phone: string;
   address: string;
+  zip?: string;
+  city?: string;
+  vat?: string;
+  sdiCode?: string;
   totalOrders: number;
 }
 
@@ -71,6 +78,7 @@ export interface Order {
   status: 'Nuovo' | 'In Lavorazione' | 'Spedito' | 'Consegnato' | 'Annullato' | 'Fatturato';
   items: { sku: string; name: string; quantity: number; price: number }[];
   total: number;
+  sourceDocId?: number;
 }
 
 export interface Document {
@@ -132,10 +140,12 @@ interface StoreContextType extends AppData {
 
   // Transactions
   addTransaction: (tx: Transaction) => void;
+  registerPayment: (docId: number, amount: number, date: string, method: Transaction['method'], notes: string, isTotal: boolean) => void;
   deleteTransaction: (id: string) => void;
 
   // Special Conversions
   convertQuoteToOrder: (quote: Document) => void;
+  convertDocToInvoice: (source: Document) => void;
 
   // Categories
   addCategory: (cat: Category) => void;
@@ -207,7 +217,7 @@ const initialData: AppData = {
     },
   ],
   documents: [
-    { id: 1, type: 'Fattura', direction: 'Uscita', number: 'FPA-2023/45', date: '2023-10-26', recipient: 'Profumeria Centrale', amount: 1250, paidAmount: 1250, status: 'Pagata', items: [{ sku: 'PF-OUD-100', name: 'Oud & Bergamot 100ml', quantity: 10, price: 120 }] },
+    { id: 1, type: 'Fattura', direction: 'Uscita', number: 'FPA-2023/45', date: '2023-10-26', recipient: 'Profumeria Centrale', amount: 1250, paidAmount: 1250, status: 'Pagato', items: [{ sku: 'PF-OUD-100', name: 'Oud & Bergamot 100ml', quantity: 10, price: 120 }] },
     { id: 2, type: 'DDT', direction: 'Uscita', number: 'DDT-2023/89', date: '2023-10-25', recipient: 'Boutique Roma', amount: 0, paidAmount: 0, status: 'Consegnato', items: [] },
     { id: 3, type: 'Preventivo', direction: 'Uscita', number: 'PRV-2023/112', date: '2023-10-24', recipient: 'Hotel Excelsior', amount: 3400, paidAmount: 0, status: 'In Attesa', items: [{ sku: 'PF-CTR-100', name: 'Citrus Bloom 100ml', quantity: 40, price: 85 }] },
   ],
@@ -351,12 +361,24 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const updateOrder = (id: string, updates: Partial<Order>) => {
     const oldOrder = orders.find(o => o.id === id);
     let newStock = [...stock];
+    let newDocs = [...documents];
+
     if (oldOrder && updates.status === 'Annullato' && oldOrder.status !== 'Annullato') {
+      // Restore committed stock
       oldOrder.items.forEach(item => {
         newStock = newStock.map(s => s.sku === item.sku ? { ...s, committed: Math.max(0, (s.committed || 0) - item.quantity) } : s);
       });
+      // Restore Quote status if linked
+      if (oldOrder.sourceDocId) {
+        newDocs = newDocs.map(d => d.id === oldOrder.sourceDocId ? { ...d, status: 'In Attesa' } : d);
+      }
     }
-    pushToHistory({ ...data, orders: orders.map(o => o.id === id ? { ...o, ...updates } : o), stock: newStock });
+    pushToHistory({
+      ...data,
+      orders: orders.map(o => o.id === id ? { ...o, ...updates } : o),
+      stock: newStock,
+      documents: newDocs
+    });
   };
   
   const deleteOrder = (id: string) => pushToHistory({ ...data, orders: orders.filter(o => o.id !== id) });
@@ -393,13 +415,77 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   };
   
   const updateDocument = (id: number, updates: Partial<Document>) => {
-    pushToHistory({ ...data, documents: documents.map(d => d.id === id ? { ...d, ...updates } : d) });
+    const oldDoc = documents.find(d => d.id === id);
+    let newStock = [...stock];
+
+    // If it's a Carico Libero and items changed, we need to sync stock
+    if (oldDoc && oldDoc.type === 'Carico Libero' && updates.items) {
+      // 1. Revert old items (subtract)
+      oldDoc.items.forEach(oldItem => {
+        newStock = newStock.map(s => {
+          if (s.sku === oldItem.sku) {
+            const nq = s.quantity - oldItem.quantity;
+            return { ...s, quantity: nq, status: getStockStatus(nq, s.minStock) };
+          }
+          return s;
+        });
+      });
+      // 2. Apply new items (add)
+      updates.items.forEach(newItem => {
+        newStock = newStock.map(s => {
+          if (s.sku === newItem.sku) {
+            const nq = s.quantity + newItem.quantity;
+            return { ...s, quantity: nq, status: getStockStatus(nq, s.minStock) };
+          }
+          return s;
+        });
+      });
+    }
+
+    pushToHistory({
+      ...data,
+      documents: documents.map(d => d.id === id ? { ...d, ...updates } : d),
+      stock: newStock
+    });
   };
   
   const deleteDocument = (id: number) => pushToHistory({ ...data, documents: documents.filter(d => d.id !== id) });
 
   const addTransaction = (tx: Transaction) => {
     pushToHistory({ ...data, transactions: [...transactions, { ...tx, id: `TX-${Date.now()}` }] });
+  };
+
+  const registerPayment = (docId: number, amount: number, date: string, method: Transaction['method'], notes: string, isTotal: boolean) => {
+    const doc = documents.find(d => d.id === docId);
+    if (!doc) return;
+
+    const newPaidAmount = (doc.paidAmount || 0) + amount;
+    const newStatus = isTotal || newPaidAmount >= doc.amount ? 'Pagato' : 'Pagamento Parziale';
+
+    const newTransaction: Transaction = {
+      id: `TX-${Date.now()}`,
+      type: doc.direction === 'Entrata' ? 'Uscita' : 'Entrata',
+      date,
+      amount,
+      recipient: doc.recipient,
+      category: doc.type === 'Fattura' ? 'Vendita Prodotti' : 'Pagamento Documento',
+      method,
+      referenceId: docId.toString(),
+      docType: doc.type,
+      docNumber: doc.number,
+      docTotalAmount: doc.amount,
+      notes
+    };
+
+    const newDocuments = documents.map(d =>
+      d.id === docId ? { ...d, paidAmount: newPaidAmount, status: newStatus } : d
+    );
+
+    pushToHistory({
+      ...data,
+      transactions: [...transactions, newTransaction],
+      documents: newDocuments
+    });
   };
 
   const deleteTransaction = (id: string) => {
@@ -430,7 +516,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         date: new Date().toISOString().split('T')[0],
         status: 'Nuovo',
         items: quote.items,
-        total: quote.amount
+        total: quote.amount,
+        sourceDocId: quote.id
     };
 
     let newStock = [...stock];
@@ -445,6 +532,50 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         orders: [...orders, newOrder], 
         documents: newDocs,
         stock: newStock 
+    });
+  };
+
+  const convertDocToInvoice = (source: Document) => {
+    const invoiceId = Date.now();
+    const newInvoice: Document = {
+      ...source,
+      id: invoiceId,
+      type: 'Fattura',
+      number: `FPA-${source.number.split('-').pop()}`,
+      date: new Date().toISOString().split('T')[0],
+      status: 'Emessa',
+      paidAmount: 0,
+      sourceOrderId: source.sourceOrderId
+    };
+
+    let newStock = [...stock];
+    let newOrders = [...orders];
+
+    // If source was a Quote, it was purely administrative.
+    // Converting it directly to Invoice should behave like adding a new Invoice: decrease stock.
+    // However, if converting from DDT, stock was already decreased by the DDT.
+    if (source.type === 'Preventivo') {
+        source.items.forEach(item => {
+          newStock = newStock.map(s => {
+            if (s.sku === item.sku) {
+                const nq = s.quantity - item.quantity;
+                return { ...s, quantity: nq, status: getStockStatus(nq, s.minStock) };
+            }
+            return s;
+          });
+        });
+    }
+
+    const newDocs = [
+      ...documents.map(d => d.id === source.id ? { ...d, status: 'Convertito' } : d),
+      newInvoice
+    ];
+
+    pushToHistory({
+      ...data,
+      documents: newDocs,
+      stock: newStock,
+      orders: newOrders
     });
   };
 
@@ -486,10 +617,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       addOrder, updateOrder, deleteOrder,
       addDocument, updateDocument, deleteDocument,
       addTransaction, deleteTransaction,
-      convertQuoteToOrder,
+      convertQuoteToOrder, convertDocToInvoice,
       addCategory, updateCategory, deleteCategory,
       undo, redo, canUndo: history.length > 0, canRedo: redoStack.length > 0,
-      resetApp, exportData, importData
+      resetApp, exportData, importData,
+      registerPayment
     }}>
       {children}
     </StoreContext.Provider>
