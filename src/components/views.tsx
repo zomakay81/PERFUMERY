@@ -4,7 +4,8 @@ import {
   Activity, AlertTriangle, CheckCircle2, Clock, PackageSearch, 
   TrendingUp, Plus, Search, Filter, Download, FileText, Package,
   ArrowUpRight, ArrowRight, Beaker, ShoppingBag, Truck, FlaskConical, Edit2, Trash2, Star,
-  ChevronRight, Settings, Undo2, Redo2, Layers, Copy, Wallet, CreditCard, History, Calendar
+  ChevronRight, Settings, Undo2, Redo2, Layers, Copy, Wallet, CreditCard, History, Calendar,
+  ChevronUp, ChevronDown
 } from 'lucide-react';
 import { useStore, Supplier, Customer, Order, Batch, StockItem, Document as AppDocument, Category, Transaction } from '../store/useStore';
 import { SupplierModal } from './SupplierModal';
@@ -340,12 +341,30 @@ export function MagazzinoView() {
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState('Tutti');
 
+  const [sortConfig, setSortConfig] = useState<{ key: keyof StockItem; direction: 'asc' | 'desc' } | null>(null);
+
+  const handleSort = (key: keyof StockItem) => {
+    let direction: 'asc' | 'desc' = 'asc';
+    if (sortConfig && sortConfig.key === key && sortConfig.direction === 'asc') {
+      direction = 'desc';
+    }
+    setSortConfig({ key, direction });
+  };
+
   const categoriesList = ['Tutti', ...categories.filter(c => c.level === 1).map(c => c.name)];
 
   const filteredStock = stock.filter(item => {
     const matchesSearch = item.name.toLowerCase().includes(search.toLowerCase()) || item.sku.toLowerCase().includes(search.toLowerCase());
     const matchesFilter = filter === 'Tutti' || item.category === filter;
     return matchesSearch && matchesFilter;
+  });
+
+  const sortedStock = [...filteredStock].sort((a, b) => {
+    if (!sortConfig) return 0;
+    const { key, direction } = sortConfig;
+    if (a[key]! < b[key]!) return direction === 'asc' ? -1 : 1;
+    if (a[key]! > b[key]!) return direction === 'asc' ? 1 : -1;
+    return 0;
   });
 
   const handleEdit = (item: StockItem) => {
@@ -405,18 +424,40 @@ export function MagazzinoView() {
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="bg-white/5 text-slate-500 text-[10px] font-black uppercase tracking-widest border-b border-white/5">
-                <th className="p-5">SKU / Codice</th>
-                <th className="p-5">Descrizione</th>
-                <th className="p-5">Categoria</th>
-                <th className="p-5">Giacenza</th>
-                <th className="p-5">Impegnata</th>
-                <th className="p-5">Stato</th>
+                <th className="p-5">Foto</th>
+                <th className="p-5 cursor-pointer hover:bg-white/5 transition-colors" onClick={() => handleSort('sku')}>
+                  <div className="flex items-center gap-2">SKU {sortConfig?.key === 'sku' && (sortConfig.direction === 'asc' ? <ChevronUp size={12}/> : <ChevronDown size={12}/>)}</div>
+                </th>
+                <th className="p-5 cursor-pointer hover:bg-white/5 transition-colors" onClick={() => handleSort('name')}>
+                  <div className="flex items-center gap-2">Descrizione {sortConfig?.key === 'name' && (sortConfig.direction === 'asc' ? <ChevronUp size={12}/> : <ChevronDown size={12}/>)}</div>
+                </th>
+                <th className="p-5 cursor-pointer hover:bg-white/5 transition-colors" onClick={() => handleSort('category')}>
+                  <div className="flex items-center gap-2">Categoria {sortConfig?.key === 'category' && (sortConfig.direction === 'asc' ? <ChevronUp size={12}/> : <ChevronDown size={12}/>)}</div>
+                </th>
+                <th className="p-5 cursor-pointer hover:bg-white/5 transition-colors" onClick={() => handleSort('quantity')}>
+                  <div className="flex items-center gap-2">Giacenza {sortConfig?.key === 'quantity' && (sortConfig.direction === 'asc' ? <ChevronUp size={12}/> : <ChevronDown size={12}/>)}</div>
+                </th>
+                <th className="p-5 cursor-pointer hover:bg-white/5 transition-colors" onClick={() => handleSort('committed')}>
+                  <div className="flex items-center gap-2">Impegnata {sortConfig?.key === 'committed' && (sortConfig.direction === 'asc' ? <ChevronUp size={12}/> : <ChevronDown size={12}/>)}</div>
+                </th>
+                <th className="p-5 cursor-pointer hover:bg-white/5 transition-colors" onClick={() => handleSort('status')}>
+                  <div className="flex items-center gap-2">Stato {sortConfig?.key === 'status' && (sortConfig.direction === 'asc' ? <ChevronUp size={12}/> : <ChevronDown size={12}/>)}</div>
+                </th>
                 <th className="p-5 text-right">Azioni</th>
               </tr>
             </thead>
             <tbody className="text-sm">
-              {filteredStock.map((item) => (
+              {sortedStock.map((item) => (
                 <tr key={item.sku} className="border-b border-white/5 hover:bg-white/[0.02] transition-colors group">
+                  <td className="p-5">
+                    <div className="w-10 h-10 rounded-lg overflow-hidden bg-slate-800 border border-white/5">
+                        <img
+                            src={item.images?.[0] || 'https://picsum.photos/seed/placeholder/100/100'}
+                            alt={item.name}
+                            className="w-full h-full object-cover"
+                        />
+                    </div>
+                  </td>
                   <td className="p-5 font-mono text-slate-400 font-bold">{item.sku}</td>
                   <td className="p-5 font-bold text-white">{item.name}</td>
                   <td className="p-5">
@@ -1152,11 +1193,20 @@ function CategorizzazioneSection() {
 
 // --- FINANCIALS (Incassi & Pagamenti) ---
 export function FinancialsView() {
-    const { transactions, addTransaction, deleteTransaction } = useStore();
+    const { transactions, addTransaction, deleteTransaction, customers, suppliers } = useStore();
     const [showForm, setShowForm] = useState(false);
     const [formData, setFormData] = useState<Partial<Transaction>>({
         type: 'Entrata', date: new Date().toISOString().split('T')[0], method: 'Bonifico', category: 'Vendita'
     });
+
+    const recipients = [
+        ...customers.map(c => ({ id: c.id.toString(), name: c.name, type: 'Cliente' })),
+        ...suppliers.map(s => ({ id: s.id.toString(), name: s.name, type: 'Fornitore' }))
+    ];
+
+    const categories = [
+        'Vendita Prodotti', 'Pagamento Documento', 'Acquisto Materie Prime', 'Affitto', 'Utenze', 'Consulenza', 'Marketing', 'Altro'
+    ];
 
     const totalIncome = transactions.filter(t => t.type === 'Entrata').reduce((acc, t) => acc + t.amount, 0);
     const totalOutcome = transactions.filter(t => t.type === 'Uscita').reduce((acc, t) => acc + t.amount, 0);
@@ -1197,8 +1247,10 @@ export function FinancialsView() {
                                 <th className="p-5">Tipo</th>
                                 <th className="p-5">Beneficiario/Cliente</th>
                                 <th className="p-5">Categoria</th>
-                                <th className="p-5">Metodo</th>
-                                <th className="p-5">Importo</th>
+                                <th className="p-5">Doc. Tipo</th>
+                                <th className="p-5">Doc. Numero</th>
+                                <th className="p-5">Importo Doc.</th>
+                                <th className="p-5">Transazione</th>
                                 <th className="p-5 text-right">Azioni</th>
                             </tr>
                         </thead>
@@ -1213,14 +1265,14 @@ export function FinancialsView() {
                                     </td>
                                     <td className="p-5 font-bold text-white">{tx.recipient}</td>
                                     <td className="p-5 text-slate-400">{tx.category}</td>
-                                    <td className="p-5">
-                                        <div className="flex items-center gap-2 text-slate-300">
-                                            <CreditCard size={14} />
-                                            {tx.method}
-                                        </div>
-                                    </td>
+                                    <td className="p-5 text-slate-500 font-bold">{tx.docType || '-'}</td>
+                                    <td className="p-5 text-slate-500 font-mono">{tx.docNumber || '-'}</td>
+                                    <td className="p-5 text-slate-500">{tx.docTotalAmount ? `€ ${tx.docTotalAmount.toLocaleString()}` : '-'}</td>
                                     <td className={`p-5 font-black ${tx.type === 'Entrata' ? 'text-emerald-400' : 'text-rose-400'}`}>
-                                        {tx.type === 'Entrata' ? '+' : '-'} € {tx.amount.toLocaleString()}
+                                        <div className="flex flex-col">
+                                            <span>{tx.type === 'Entrata' ? '+' : '-'} € {tx.amount.toLocaleString()}</span>
+                                            <span className="text-[10px] text-slate-500 font-normal uppercase tracking-tighter">{tx.method}</span>
+                                        </div>
                                     </td>
                                     <td className="p-5 text-right">
                                         <button onClick={() => deleteTransaction(tx.id)} className="p-2 text-slate-500 hover:text-rose-500 opacity-0 group-hover:opacity-100 transition-all"><Trash2 size={16} /></button>
@@ -1243,17 +1295,76 @@ export function FinancialsView() {
                                     <button type="button" onClick={() => setFormData({...formData, type: 'Entrata'})} className={`py-3 rounded-xl font-bold transition-all ${formData.type === 'Entrata' ? 'bg-emerald-600 text-white' : 'bg-slate-800 text-slate-400'}`}>Incasso</button>
                                     <button type="button" onClick={() => setFormData({...formData, type: 'Uscita'})} className={`py-3 rounded-xl font-bold transition-all ${formData.type === 'Uscita' ? 'bg-rose-600 text-white' : 'bg-slate-800 text-slate-400'}`}>Pagamento</button>
                                 </div>
-                                <input type="date" required value={formData.date} onChange={e => setFormData({...formData, date: e.target.value})} className="w-full bg-slate-950/50 border border-white/5 rounded-xl px-4 py-3 text-white" />
-                                <input type="text" required placeholder="Beneficiario / Cliente" value={formData.recipient} onChange={e => setFormData({...formData, recipient: e.target.value})} className="w-full bg-slate-950/50 border border-white/5 rounded-xl px-4 py-3 text-white" />
                                 <div className="grid grid-cols-2 gap-4">
-                                    <input type="number" required placeholder="Importo €" value={formData.amount} onChange={e => setFormData({...formData, amount: Number(e.target.value)})} className="w-full bg-slate-950/50 border border-white/5 rounded-xl px-4 py-3 text-white" />
-                                    <select value={formData.method} onChange={e => setFormData({...formData, method: e.target.value as any})} className="w-full bg-slate-950/50 border border-white/5 rounded-xl px-4 py-3 text-white">
-                                        <option value="Bonifico">Bonifico</option>
-                                        <option value="Contanti">Contanti</option>
-                                        <option value="Carta">Carta</option>
+                                    <div>
+                                        <label className="block text-[10px] font-black text-slate-500 uppercase mb-1.5">Data</label>
+                                        <input type="date" required value={formData.date} onChange={e => setFormData({...formData, date: e.target.value})} className="w-full bg-slate-950/50 border border-white/5 rounded-xl px-4 py-3 text-white text-sm" />
+                                    </div>
+                                    <div>
+                                        <label className="block text-[10px] font-black text-slate-500 uppercase mb-1.5">Metodo</label>
+                                        <select value={formData.method} onChange={e => setFormData({...formData, method: e.target.value as any})} className="w-full bg-slate-950/50 border border-white/5 rounded-xl px-4 py-3 text-white text-sm">
+                                            <option value="Bonifico">Bonifico</option>
+                                            <option value="Contanti">Contanti</option>
+                                            <option value="Carta">Carta</option>
+                                            <option value="Altro">Altro</option>
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <label className="block text-[10px] font-black text-slate-500 uppercase mb-1.5">Beneficiario / Cliente</label>
+                                    <select
+                                        required
+                                        value={formData.recipient || ''}
+                                        onChange={e => setFormData({...formData, recipient: e.target.value})}
+                                        className="w-full bg-slate-950/50 border border-white/5 rounded-xl px-4 py-3 text-white text-sm"
+                                    >
+                                        <option value="">Seleziona...</option>
+                                        {recipients.map((r, i) => (
+                                            <option key={i} value={r.name}>{r.name} ({r.type})</option>
+                                        ))}
                                     </select>
                                 </div>
-                                <input type="text" placeholder="Categoria (es. Affitto, Vendita...)" value={formData.category} onChange={e => setFormData({...formData, category: e.target.value})} className="w-full bg-slate-950/50 border border-white/5 rounded-xl px-4 py-3 text-white" />
+
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <label className="block text-[10px] font-black text-slate-500 uppercase mb-1.5">Categoria</label>
+                                        <select
+                                            required
+                                            value={formData.category || ''}
+                                            onChange={e => setFormData({...formData, category: e.target.value})}
+                                            className="w-full bg-slate-950/50 border border-white/5 rounded-xl px-4 py-3 text-white text-sm"
+                                        >
+                                            <option value="">Seleziona...</option>
+                                            {categories.map((c, i) => (
+                                                <option key={i} value={c}>{c}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label className="block text-[10px] font-black text-slate-500 uppercase mb-1.5">Importo Transazione</label>
+                                        <input type="number" step="0.01" required placeholder="€ 0.00" value={formData.amount} onChange={e => setFormData({...formData, amount: Number(e.target.value)})} className="w-full bg-slate-950/50 border border-white/5 rounded-xl px-4 py-3 text-white text-sm" />
+                                    </div>
+                                </div>
+
+                                <div className="p-4 rounded-2xl bg-white/5 border border-white/5 space-y-4">
+                                    <h4 className="text-[10px] font-black text-purple-400 uppercase tracking-widest">Dettagli Documento (Opzionale)</h4>
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div>
+                                            <label className="block text-[10px] font-black text-slate-500 uppercase mb-1.5">Tipo Doc.</label>
+                                            <input type="text" placeholder="Es. Fattura" value={formData.docType || ''} onChange={e => setFormData({...formData, docType: e.target.value})} className="w-full bg-slate-950/50 border border-white/5 rounded-xl px-4 py-2.5 text-white text-xs" />
+                                        </div>
+                                        <div>
+                                            <label className="block text-[10px] font-black text-slate-500 uppercase mb-1.5">Numero Doc.</label>
+                                            <input type="text" placeholder="Es. FPA-2023/01" value={formData.docNumber || ''} onChange={e => setFormData({...formData, docNumber: e.target.value})} className="w-full bg-slate-950/50 border border-white/5 rounded-xl px-4 py-2.5 text-white text-xs" />
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <label className="block text-[10px] font-black text-slate-500 uppercase mb-1.5">Importo Totale Documento</label>
+                                        <input type="number" step="0.01" placeholder="€ 0.00" value={formData.docTotalAmount || ''} onChange={e => setFormData({...formData, docTotalAmount: Number(e.target.value)})} className="w-full bg-slate-950/50 border border-white/5 rounded-xl px-4 py-2.5 text-white text-xs" />
+                                    </div>
+                                </div>
+
                                 <button type="submit" className="w-full py-4 bg-purple-600 hover:bg-purple-500 text-white font-black rounded-xl shadow-lg transition-all">Registra Operazione</button>
                             </form>
                         </motion.div>
@@ -1266,53 +1377,265 @@ export function FinancialsView() {
 
 // --- MOVIMENTI (Archivio Carichi/Scarichi) ---
 export function MovimentiView() {
-    const { documents } = useStore();
+    const { documents, deleteDocument } = useStore();
+    const [search, setSearch] = useState('');
+    const [typeFilter, setTypeFilter] = useState('Tutti');
+    const [directionFilter, setDirectionFilter] = useState('Tutti');
+    const [monthFilter, setMonthFilter] = useState('Tutti');
+
+    const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
+    const [selectedDoc, setSelectedDoc] = useState<AppDocument | null>(null);
+
     const movimenti = documents.filter(d => ['Carico Libero', 'Fattura Fornitore', 'DDT Fornitore', 'Fattura', 'DDT'].includes(d.type));
+
+    const filteredMovimenti = movimenti.filter(m => {
+        const matchesSearch = m.number.toLowerCase().includes(search.toLowerCase()) || m.recipient.toLowerCase().includes(search.toLowerCase());
+        const matchesType = typeFilter === 'Tutti' || m.type === typeFilter;
+        const matchesDirection = directionFilter === 'Tutti' || m.direction === directionFilter;
+        const matchesMonth = monthFilter === 'Tutti' || m.date.startsWith(monthFilter);
+        return matchesSearch && matchesType && matchesDirection && matchesMonth;
+    });
+
+    const groupedMovimenti = filteredMovimenti.reduce((acc: any, m) => {
+        const month = m.date.slice(0, 7);
+        if (!acc[month]) acc[month] = [];
+        acc[month].push(m);
+        return acc;
+    }, {});
+
+    const availableMonths = Array.from(new Set(movimenti.map(m => m.date.slice(0, 7)))).sort().reverse();
+    const availableTypes = ['Tutti', 'Carico Libero', 'Fattura Fornitore', 'DDT Fornitore', 'Fattura', 'DDT'];
+
+    const handleViewDetail = (doc: AppDocument) => {
+        setSelectedDoc(doc);
+        setIsDetailModalOpen(true);
+    };
 
     return (
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-8">
-            <header>
-                <h2 className="text-3xl font-black text-white tracking-tight">Storico Movimenti</h2>
-                <p className="text-slate-400 text-sm font-medium mt-1">Archivio completo di tutti i carichi e scarichi di magazzino.</p>
+            <header className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div>
+                    <h2 className="text-3xl font-black text-white tracking-tight">Storico Movimenti</h2>
+                    <p className="text-slate-400 text-sm font-medium mt-1">Archivio completo di tutti i carichi e scarichi di magazzino.</p>
+                </div>
             </header>
 
-            <Card className="!p-0 overflow-hidden">
-                <div className="overflow-x-auto">
-                    <table className="w-full text-left border-collapse">
-                        <thead>
-                            <tr className="bg-white/5 text-slate-500 text-[10px] font-black uppercase tracking-widest border-b border-white/5">
-                                <th className="p-5">Data</th>
-                                <th className="p-5">Tipo</th>
-                                <th className="p-5">Documento</th>
-                                <th className="p-5">Dettagli Articoli</th>
-                                <th className="p-5 text-right">Verso</th>
-                            </tr>
-                        </thead>
-                        <tbody className="text-sm">
-                            {movimenti.sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime()).map((m) => (
-                                <tr key={m.id} className="border-b border-white/5 hover:bg-white/[0.02] transition-colors">
-                                    <td className="p-5 text-slate-400 font-mono">{m.date}</td>
-                                    <td className="p-5 font-bold text-white">{m.type}</td>
-                                    <td className="p-5 text-slate-300 font-mono">{m.number}</td>
-                                    <td className="p-5">
-                                        <div className="flex flex-wrap gap-1">
-                                            {m.items.map((it, i) => (
-                                                <span key={i} className="px-2 py-0.5 bg-white/5 rounded text-[10px] text-slate-400 border border-white/5">{it.sku} ({it.quantity})</span>
-                                            ))}
-                                        </div>
-                                    </td>
-                                    <td className="p-5 text-right">
-                                        <span className={`px-2 py-1 rounded-lg text-[10px] font-black uppercase ${m.direction === 'Entrata' ? 'text-emerald-400 bg-emerald-400/10' : 'text-blue-400 bg-blue-400/10'}`}>
-                                            {m.direction}
-                                        </span>
-                                    </td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
+            <div className="flex flex-wrap gap-4 mb-6">
+                <div className="relative flex-1 min-w-[200px]">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" size={18} />
+                    <input
+                        type="text" placeholder="Cerca documento o destinatario..." value={search} onChange={e => setSearch(e.target.value)}
+                        className="w-full pl-10 pr-4 py-2.5 bg-slate-900 border border-white/5 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500/50 text-sm"
+                    />
                 </div>
-            </Card>
+                <select
+                    value={typeFilter} onChange={e => setTypeFilter(e.target.value)}
+                    className="bg-slate-900 border border-white/5 rounded-xl px-4 py-2.5 text-xs font-black uppercase tracking-widest text-slate-400 focus:outline-none"
+                >
+                    {availableTypes.map(t => <option key={t} value={t}>{t}</option>)}
+                </select>
+                <select
+                    value={directionFilter} onChange={e => setDirectionFilter(e.target.value)}
+                    className="bg-slate-900 border border-white/5 rounded-xl px-4 py-2.5 text-xs font-black uppercase tracking-widest text-slate-400 focus:outline-none"
+                >
+                    <option value="Tutti">DIREZIONE: TUTTI</option>
+                    <option value="Entrata">ENTRATA</option>
+                    <option value="Uscita">USCITA</option>
+                </select>
+                <select
+                    value={monthFilter} onChange={e => setMonthFilter(e.target.value)}
+                    className="bg-slate-900 border border-white/5 rounded-xl px-4 py-2.5 text-xs font-black uppercase tracking-widest text-slate-400 focus:outline-none"
+                >
+                    <option value="Tutti">MESE: TUTTI</option>
+                    {availableMonths.map(m => <option key={m} value={m}>{new Date(m).toLocaleDateString('it-IT', { month: 'long', year: 'numeric' }).toUpperCase()}</option>)}
+                </select>
+            </div>
+
+            <div className="space-y-8">
+                {Object.entries(groupedMovimenti).sort((a: any, b: any) => b[0].localeCompare(a[0])).map(([month, docs]: any) => (
+                    <div key={month} className="space-y-4">
+                        <h3 className="text-sm font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
+                            <Calendar size={14} /> {new Date(month).toLocaleDateString('it-IT', { month: 'long', year: 'numeric' })}
+                        </h3>
+                        <Card className="!p-0 overflow-hidden">
+                            <div className="overflow-x-auto">
+                                <table className="w-full text-left border-collapse">
+                                    <thead>
+                                        <tr className="bg-white/5 text-slate-500 text-[10px] font-black uppercase tracking-widest border-b border-white/5">
+                                            <th className="p-5">Data</th>
+                                            <th className="p-5">Tipo</th>
+                                            <th className="p-5">Numero</th>
+                                            <th className="p-5">Destinatario / Fornitore</th>
+                                            <th className="p-5">Articoli</th>
+                                            <th className="p-5">Verso</th>
+                                            <th className="p-5 text-right">Azioni</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="text-sm">
+                                        {docs.sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime()).map((m: any) => (
+                                            <tr key={m.id} className="border-b border-white/5 hover:bg-white/[0.02] transition-colors group">
+                                                <td className="p-5 text-slate-400 font-mono">{m.date}</td>
+                                                <td className="p-5 font-bold text-white">{m.type}</td>
+                                                <td className="p-5 text-slate-300 font-mono">{m.number}</td>
+                                                <td className="p-5 text-slate-400">{m.recipient}</td>
+                                                <td className="p-5">
+                                                    <span className="font-black text-purple-400">{m.items.length}</span>
+                                                </td>
+                                                <td className="p-5">
+                                                    <span className={`px-2 py-1 rounded-lg text-[10px] font-black uppercase ${m.direction === 'Entrata' ? 'text-emerald-400 bg-emerald-400/10' : 'text-blue-400 bg-blue-400/10'}`}>
+                                                        {m.direction}
+                                                    </span>
+                                                </td>
+                                                <td className="p-5 text-right">
+                                                    <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-all">
+                                                        <button
+                                                            onClick={() => handleViewDetail(m)}
+                                                            className="p-2 bg-slate-800 hover:bg-purple-500/20 text-purple-400 rounded-lg transition-all"
+                                                        >
+                                                            <ArrowRight size={16} />
+                                                        </button>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </Card>
+                    </div>
+                ))}
+            </div>
+
+            <DocumentDetailModal
+                isOpen={isDetailModalOpen}
+                onClose={() => setIsDetailModalOpen(false)}
+                document={selectedDoc}
+            />
         </motion.div>
+    );
+}
+
+// --- DOCUMENT DETAIL MODAL ---
+function DocumentDetailModal({ isOpen, onClose, document: doc }: { isOpen: boolean, onClose: () => void, document: AppDocument | null }) {
+    const { updateDocument, stock } = useStore();
+    const [isEditing, setIsEditing] = useState(false);
+    const [items, setItems] = useState(doc?.items || []);
+
+    if (!doc) return null;
+
+    const handleSave = () => {
+        updateDocument(doc.id, { items });
+        setIsEditing(false);
+    };
+
+    const updateItemQty = (index: number, quantity: number) => {
+        const newItems = [...items];
+        newItems[index] = { ...newItems[index], quantity };
+        setItems(newItems);
+    };
+
+    return (
+        <AnimatePresence>
+            {isOpen && (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+                    <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        onClick={onClose}
+                        className="absolute inset-0 bg-slate-950/90 backdrop-blur-sm"
+                    />
+                    <motion.div
+                        initial={{ scale: 0.95, opacity: 0 }}
+                        animate={{ scale: 1, opacity: 1 }}
+                        exit={{ scale: 0.95, opacity: 0 }}
+                        className="relative w-full max-w-2xl bg-slate-900 border border-white/10 rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[85vh]"
+                    >
+                        <div className="p-6 border-b border-white/5 flex justify-between items-center bg-slate-900/50 backdrop-blur-xl">
+                            <div>
+                                <h3 className="text-xl font-black text-white flex items-center gap-2">
+                                    <FileText className="text-purple-400" size={24} />
+                                    {doc.type} {doc.number}
+                                </h3>
+                                <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mt-1">{doc.recipient} • {doc.date}</p>
+                            </div>
+                            <button onClick={onClose} className="p-2 hover:bg-white/5 rounded-xl text-slate-400"><X size={20}/></button>
+                        </div>
+
+                        <div className="flex-1 overflow-y-auto p-8 space-y-8">
+                            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                                <div className="p-4 rounded-2xl bg-white/5 border border-white/5">
+                                    <p className="text-[8px] font-black text-slate-500 uppercase mb-1">Stato</p>
+                                    <p className="text-xs font-bold text-white">{doc.status}</p>
+                                </div>
+                                <div className="p-4 rounded-2xl bg-white/5 border border-white/5">
+                                    <p className="text-[8px] font-black text-slate-500 uppercase mb-1">Verso</p>
+                                    <p className={`text-xs font-bold ${doc.direction === 'Entrata' ? 'text-emerald-400' : 'text-blue-400'}`}>{doc.direction}</p>
+                                </div>
+                                <div className="p-4 rounded-2xl bg-white/5 border border-white/5">
+                                    <p className="text-[8px] font-black text-slate-500 uppercase mb-1">Importo</p>
+                                    <p className="text-xs font-bold text-white">€ {doc.amount.toLocaleString()}</p>
+                                </div>
+                                <div className="p-4 rounded-2xl bg-white/5 border border-white/5">
+                                    <p className="text-[8px] font-black text-slate-500 uppercase mb-1">Pagato</p>
+                                    <p className="text-xs font-bold text-emerald-400">€ {doc.paidAmount.toLocaleString()}</p>
+                                </div>
+                            </div>
+
+                            <div className="space-y-4">
+                                <div className="flex items-center justify-between">
+                                    <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest">Dettaglio Articoli</h4>
+                                    {doc.type === 'Carico Libero' && !isEditing && (
+                                        <button onClick={() => { setIsEditing(true); setItems(doc.items); }} className="text-[10px] font-black text-purple-400 hover:underline">MODIFICA CARICO</button>
+                                    )}
+                                </div>
+                                <div className="space-y-2">
+                                    {(isEditing ? items : doc.items).map((item, i) => (
+                                        <div key={i} className="flex items-center justify-between p-4 bg-white/5 rounded-2xl border border-white/5">
+                                            <div className="flex items-center gap-4">
+                                                <div className="w-10 h-10 rounded-xl bg-slate-800 flex items-center justify-center overflow-hidden">
+                                                    <img src={stock.find(s => s.sku === item.sku)?.images[0] || 'https://picsum.photos/seed/placeholder/100/100'} className="w-full h-full object-cover" />
+                                                </div>
+                                                <div>
+                                                    <p className="text-sm font-bold text-white">{item.name}</p>
+                                                    <p className="text-[10px] font-mono text-slate-500">{item.sku}</p>
+                                                </div>
+                                            </div>
+                                            <div className="flex items-center gap-8">
+                                                <div className="text-right">
+                                                    <p className="text-[8px] font-black text-slate-500 uppercase">Prezzo</p>
+                                                    <p className="text-xs font-bold text-white">€ {item.price.toLocaleString()}</p>
+                                                </div>
+                                                <div className="text-right w-20">
+                                                    <p className="text-[8px] font-black text-slate-500 uppercase mb-1">Quantità</p>
+                                                    {isEditing ? (
+                                                        <input
+                                                            type="number"
+                                                            value={item.quantity}
+                                                            onChange={e => updateItemQty(i, Number(e.target.value))}
+                                                            className="w-full bg-slate-950/50 border border-white/10 rounded-lg px-2 py-1 text-xs text-white text-center"
+                                                        />
+                                                    ) : (
+                                                        <p className="text-sm font-black text-purple-400">x{item.quantity}</p>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        </div>
+
+                        {isEditing && (
+                            <div className="p-6 bg-slate-950/50 border-t border-white/5 flex gap-3">
+                                <button onClick={() => setIsEditing(false)} className="flex-1 py-3 bg-slate-800 text-white font-bold rounded-xl">Annulla</button>
+                                <button onClick={handleSave} className="flex-[2] py-3 bg-emerald-600 text-white font-black rounded-xl shadow-lg shadow-emerald-600/20">Salva Modifiche & Aggiorna Stock</button>
+                            </div>
+                        )}
+                    </motion.div>
+                </div>
+            )}
+        </AnimatePresence>
     );
 }
 

@@ -32,6 +32,9 @@ export interface Transaction {
   category: string;
   method: 'Bonifico' | 'Contanti' | 'Carta' | 'Altro';
   referenceId?: string; // ID Documento o Ordine legato
+  docType?: string;
+  docNumber?: string;
+  docTotalAmount?: number;
   notes?: string;
 }
 
@@ -60,6 +63,10 @@ export interface Customer {
   email: string;
   phone: string;
   address: string;
+  zip?: string;
+  city?: string;
+  vat?: string;
+  sdiCode?: string;
   totalOrders: number;
 }
 
@@ -71,6 +78,7 @@ export interface Order {
   status: 'Nuovo' | 'In Lavorazione' | 'Spedito' | 'Consegnato' | 'Annullato' | 'Fatturato';
   items: { sku: string; name: string; quantity: number; price: number }[];
   total: number;
+  sourceDocId?: number;
 }
 
 export interface Document {
@@ -352,12 +360,24 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const updateOrder = (id: string, updates: Partial<Order>) => {
     const oldOrder = orders.find(o => o.id === id);
     let newStock = [...stock];
+    let newDocs = [...documents];
+
     if (oldOrder && updates.status === 'Annullato' && oldOrder.status !== 'Annullato') {
+      // Restore committed stock
       oldOrder.items.forEach(item => {
         newStock = newStock.map(s => s.sku === item.sku ? { ...s, committed: Math.max(0, (s.committed || 0) - item.quantity) } : s);
       });
+      // Restore Quote status if linked
+      if (oldOrder.sourceDocId) {
+        newDocs = newDocs.map(d => d.id === oldOrder.sourceDocId ? { ...d, status: 'In Attesa' } : d);
+      }
     }
-    pushToHistory({ ...data, orders: orders.map(o => o.id === id ? { ...o, ...updates } : o), stock: newStock });
+    pushToHistory({
+      ...data,
+      orders: orders.map(o => o.id === id ? { ...o, ...updates } : o),
+      stock: newStock,
+      documents: newDocs
+    });
   };
   
   const deleteOrder = (id: string) => pushToHistory({ ...data, orders: orders.filter(o => o.id !== id) });
@@ -394,7 +414,38 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   };
   
   const updateDocument = (id: number, updates: Partial<Document>) => {
-    pushToHistory({ ...data, documents: documents.map(d => d.id === id ? { ...d, ...updates } : d) });
+    const oldDoc = documents.find(d => d.id === id);
+    let newStock = [...stock];
+
+    // If it's a Carico Libero and items changed, we need to sync stock
+    if (oldDoc && oldDoc.type === 'Carico Libero' && updates.items) {
+      // 1. Revert old items (subtract)
+      oldDoc.items.forEach(oldItem => {
+        newStock = newStock.map(s => {
+          if (s.sku === oldItem.sku) {
+            const nq = s.quantity - oldItem.quantity;
+            return { ...s, quantity: nq, status: getStockStatus(nq, s.minStock) };
+          }
+          return s;
+        });
+      });
+      // 2. Apply new items (add)
+      updates.items.forEach(newItem => {
+        newStock = newStock.map(s => {
+          if (s.sku === newItem.sku) {
+            const nq = s.quantity + newItem.quantity;
+            return { ...s, quantity: nq, status: getStockStatus(nq, s.minStock) };
+          }
+          return s;
+        });
+      });
+    }
+
+    pushToHistory({
+      ...data,
+      documents: documents.map(d => d.id === id ? { ...d, ...updates } : d),
+      stock: newStock
+    });
   };
   
   const deleteDocument = (id: number) => pushToHistory({ ...data, documents: documents.filter(d => d.id !== id) });
@@ -419,6 +470,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       category: doc.type === 'Fattura' ? 'Vendita Prodotti' : 'Pagamento Documento',
       method,
       referenceId: docId.toString(),
+      docType: doc.type,
+      docNumber: doc.number,
+      docTotalAmount: doc.amount,
       notes
     };
 
@@ -461,7 +515,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         date: new Date().toISOString().split('T')[0],
         status: 'Nuovo',
         items: quote.items,
-        total: quote.amount
+        total: quote.amount,
+        sourceDocId: quote.id
     };
 
     let newStock = [...stock];
