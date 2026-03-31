@@ -140,19 +140,31 @@ export function StockInModal({ isOpen, onClose }: StockInModalProps) {
                 </div>
               </div>
 
-              <div>
-                <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1.5">Provenienza / Fornitore</label>
-                <input 
-                  type="text" 
-                  value={formData.recipient}
-                  onChange={e => setFormData({...formData, recipient: e.target.value})}
-                  className="w-full bg-slate-950/50 border border-white/5 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
-                  placeholder="Nome fornitore o causale..."
-                  list="suppliers-list"
-                />
-                <datalist id="suppliers-list">
-                    {suppliers.map(s => <option key={s.id} value={s.name} />)}
-                </datalist>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                    <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1.5">Numero Documento</label>
+                    <input 
+                        type="text" 
+                        value={formData.number}
+                        onChange={e => setFormData({...formData, number: e.target.value})}
+                        className="w-full bg-slate-950/50 border border-white/5 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
+                        placeholder="Es. FPA-2023/01"
+                    />
+                </div>
+                <div>
+                    <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1.5">Provenienza / Fornitore</label>
+                    <input 
+                        type="text" 
+                        value={formData.recipient}
+                        onChange={e => setFormData({...formData, recipient: e.target.value})}
+                        className="w-full bg-slate-950/50 border border-white/5 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
+                        placeholder="Nome fornitore o causale..."
+                        list="suppliers-list"
+                    />
+                    <datalist id="suppliers-list">
+                        {suppliers.map(s => <option key={s.id} value={s.name} />)}
+                    </datalist>
+                </div>
               </div>
 
               <div className="space-y-3">

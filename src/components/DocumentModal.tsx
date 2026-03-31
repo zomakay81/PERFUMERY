@@ -11,29 +11,43 @@ interface DocumentModalProps {
 }
 
 export function DocumentModal({ isOpen, onClose, document, initialData }: DocumentModalProps) {
-  const { addDocument, updateDocument, stock, addStockItem, customers, orders } = useStore();
+  const { addDocument, updateDocument, stock, addStockItem, customers } = useStore();
   
-  const [formData, setFormData] = useState<Partial<Document>>(
-    document || initialData || {
-      type: 'Preventivo',
-      direction: 'Uscita',
-      number: `DOC-${Date.now().toString().slice(-6)}`,
-      date: new Date().toISOString().split('T')[0],
-      recipient: '',
-      status: 'In Attesa',
-      items: [],
-      amount: 0
+  const [formData, setFormData] = useState<Partial<Document>>({
+    type: 'Preventivo',
+    direction: 'Uscita',
+    number: `DOC-${Date.now().toString().slice(-6)}`,
+    date: new Date().toISOString().split('T')[0],
+    recipient: '',
+    status: 'In Attesa',
+    items: [],
+    amount: 0
+  });
+
+  useEffect(() => {
+    if (document) {
+      setFormData(document);
+    } else if (initialData) {
+      setFormData(prev => ({ ...prev, ...initialData }));
+    } else {
+      setFormData({
+        type: 'Preventivo',
+        direction: 'Uscita',
+        number: `DOC-${Date.now().toString().slice(-6)}`,
+        date: new Date().toISOString().split('T')[0],
+        recipient: '',
+        status: 'In Attesa',
+        items: [],
+        amount: 0
+      });
     }
-  );
+  }, [document, initialData, isOpen]);
 
   const [showNewProduct, setShowNewProduct] = useState(false);
   const [newProduct, setNewProduct] = useState<Partial<StockItem>>({
     sku: '', name: '', category: 'Prodotti Finiti', quantity: 0, unit: 'pz', minStock: 5, price: 0, status: 'Ottimo'
   });
 
-  useEffect(() => {
-    if (initialData) setFormData(prev => ({ ...prev, ...initialData }));
-  }, [initialData]);
 
   const handleAddItem = () => {
     const defaultProd = stock.find(s => s.category === 'Prodotti Finiti') || stock[0];
@@ -89,6 +103,8 @@ export function DocumentModal({ isOpen, onClose, document, initialData }: Docume
     onClose();
   };
 
+  const isReadOnly = formData.status === 'Convertito' || formData.status === 'In Ordine';
+
   return (
     <AnimatePresence>
       {isOpen && (
@@ -101,7 +117,7 @@ export function DocumentModal({ isOpen, onClose, document, initialData }: Docume
             <div className="p-6 border-b border-white/5 flex justify-between items-center bg-slate-900/50 backdrop-blur-xl z-10">
               <h3 className="text-xl font-black text-white flex items-center gap-2">
                 <FileText className="text-purple-400" size={24} />
-                {document ? 'Modifica' : 'Nuovo'} {formData.type}
+                {isReadOnly ? 'Visualizza' : (document ? 'Modifica' : 'Nuovo')} {formData.type}
               </h3>
               <button onClick={onClose} className="p-2 hover:bg-white/5 rounded-xl text-slate-400"><X size={20}/></button>
             </div>
@@ -111,9 +127,10 @@ export function DocumentModal({ isOpen, onClose, document, initialData }: Docume
                 <div>
                   <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1.5">Tipo Documento</label>
                   <select 
+                    disabled={isReadOnly || !!document}
                     value={formData.type}
                     onChange={e => setFormData({...formData, type: e.target.value as any})}
-                    className="w-full bg-slate-950/50 border border-white/5 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500/50"
+                    className="w-full bg-slate-950/50 border border-white/5 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500/50 disabled:opacity-50"
                   >
                     <option value="Preventivo">Preventivo</option>
                     <option value="DDT">DDT</option>
@@ -122,31 +139,34 @@ export function DocumentModal({ isOpen, onClose, document, initialData }: Docume
                 </div>
                 <div>
                   <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1.5">Numero</label>
-                  <input type="text" value={formData.number} onChange={e => setFormData({...formData, number: e.target.value})} className="w-full bg-slate-950/50 border border-white/5 rounded-xl px-4 py-2.5 text-sm" />
+                  <input readOnly={isReadOnly} type="text" value={formData.number} onChange={e => setFormData({...formData, number: e.target.value})} className={`w-full bg-slate-950/50 border border-white/5 rounded-xl px-4 py-2.5 text-sm ${isReadOnly ? 'text-slate-500' : ''}`} />
                 </div>
                 <div>
                   <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1.5">Data</label>
-                  <input type="date" value={formData.date} onChange={e => setFormData({...formData, date: e.target.value})} className="w-full bg-slate-950/50 border border-white/5 rounded-xl px-4 py-2.5 text-sm" />
+                  <input readOnly={isReadOnly} type="date" value={formData.date} onChange={e => setFormData({...formData, date: e.target.value})} className={`w-full bg-slate-950/50 border border-white/5 rounded-xl px-4 py-2.5 text-sm ${isReadOnly ? 'text-slate-500' : ''}`} />
                 </div>
               </div>
 
               <div>
                 <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1.5">Destinatario / Cliente</label>
                 <input 
+                  readOnly={isReadOnly}
                   type="text" value={formData.recipient} onChange={e => setFormData({...formData, recipient: e.target.value})}
-                  className="w-full bg-slate-950/50 border border-white/5 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500/50"
+                  className={`w-full bg-slate-950/50 border border-white/5 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500/50 ${isReadOnly ? 'text-slate-500' : ''}`}
                   placeholder="Nome cliente..." list="customers-list"
                 />
-                <datalist id="customers-list">{customers.map(c => <option key={c.id} value={c.name} />)}</datalist>
+                {!isReadOnly && <datalist id="customers-list">{customers.map(c => <option key={c.id} value={c.name} />)}</datalist>}
               </div>
 
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
                   <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest">Righe Documento</label>
-                  <div className="flex gap-4">
-                      <button type="button" onClick={() => setShowNewProduct(true)} className="text-[10px] font-black text-emerald-400 flex items-center gap-1 hover:underline"><Plus size={12} /> NUOVO PRODOTTO</button>
-                      <button type="button" onClick={handleAddItem} className="text-[10px] font-black text-purple-400 flex items-center gap-1 hover:underline"><Plus size={12} /> AGGIUNGI RIGA</button>
-                  </div>
+                  {!isReadOnly && (
+                    <div className="flex gap-4">
+                        <button type="button" onClick={() => setShowNewProduct(true)} className="text-[10px] font-black text-emerald-400 flex items-center gap-1 hover:underline"><Plus size={12} /> NUOVO PRODOTTO</button>
+                        <button type="button" onClick={handleAddItem} className="text-[10px] font-black text-purple-400 flex items-center gap-1 hover:underline"><Plus size={12} /> AGGIUNGI RIGA</button>
+                    </div>
+                  )}
                 </div>
                 
                 <div className="space-y-2">
@@ -154,19 +174,19 @@ export function DocumentModal({ isOpen, onClose, document, initialData }: Docume
                         <div key={idx} className="flex gap-2 items-end bg-white/5 p-3 rounded-xl border border-white/5">
                             <div className="flex-1">
                                 <label className="block text-[8px] font-black text-slate-600 uppercase mb-1">Prodotto</label>
-                                <select value={item.sku} onChange={e => updateItem(idx, { sku: e.target.value })} className="w-full bg-slate-950/50 border border-white/5 rounded-lg px-2 py-1.5 text-xs focus:outline-none">
+                                <select disabled={isReadOnly} value={item.sku} onChange={e => updateItem(idx, { sku: e.target.value })} className="w-full bg-slate-950/50 border border-white/5 rounded-lg px-2 py-1.5 text-xs focus:outline-none disabled:opacity-50">
                                     {stock.map(p => <option key={p.sku} value={p.sku}>{p.sku} - {p.name}</option>)}
                                 </select>
                             </div>
                             <div className="w-16">
                                 <label className="block text-[8px] font-black text-slate-600 uppercase mb-1">Qtà</label>
-                                <input type="number" min="1" value={item.quantity} onChange={e => updateItem(idx, { quantity: Number(e.target.value) })} className="w-full bg-slate-950/50 border border-white/5 rounded-lg px-2 py-1.5 text-xs" />
+                                <input readOnly={isReadOnly} type="number" min="1" value={item.quantity} onChange={e => updateItem(idx, { quantity: Number(e.target.value) })} className={`w-full bg-slate-950/50 border border-white/5 rounded-lg px-2 py-1.5 text-xs ${isReadOnly ? 'text-slate-500' : ''}`} />
                             </div>
                             <div className="w-24">
                                 <label className="block text-[8px] font-black text-slate-600 uppercase mb-1">Prezzo (€)</label>
-                                <input type="number" step="0.01" value={item.price} onChange={e => updateItem(idx, { price: Number(e.target.value) })} className="w-full bg-slate-950/50 border border-white/5 rounded-lg px-2 py-1.5 text-xs" />
+                                <input readOnly={isReadOnly} type="number" step="0.01" value={item.price} onChange={e => updateItem(idx, { price: Number(e.target.value) })} className={`w-full bg-slate-950/50 border border-white/5 rounded-lg px-2 py-1.5 text-xs ${isReadOnly ? 'text-slate-500' : ''}`} />
                             </div>
-                            <button type="button" onClick={() => handleRemoveItem(idx)} className="p-2 text-rose-500 hover:bg-rose-500/10 rounded-lg transition-colors"><Trash2 size={16} /></button>
+                            {!isReadOnly && <button type="button" onClick={() => handleRemoveItem(idx)} className="p-2 text-rose-500 hover:bg-rose-500/10 rounded-lg transition-colors"><Trash2 size={16} /></button>}
                         </div>
                     ))}
                 </div>
@@ -192,8 +212,8 @@ export function DocumentModal({ isOpen, onClose, document, initialData }: Docume
                     ) : null}
                 </div>
                 <div className="flex gap-3">
-                    <button type="button" onClick={onClose} className="px-6 py-2.5 bg-slate-800 hover:bg-slate-700 text-white font-bold rounded-xl">Annulla</button>
-                    <button type="submit" className="px-8 py-2.5 bg-purple-600 hover:bg-purple-500 text-white font-bold rounded-xl transition-all shadow-lg shadow-purple-600/20 flex items-center gap-2"><Save size={18} /> Salva Documento</button>
+                    <button type="button" onClick={onClose} className="px-6 py-2.5 bg-slate-800 hover:bg-slate-700 text-white font-bold rounded-xl">{isReadOnly ? 'Chiudi' : 'Annulla'}</button>
+                    {!isReadOnly && <button type="submit" className="px-8 py-2.5 bg-purple-600 hover:bg-purple-500 text-white font-bold rounded-xl transition-all shadow-lg shadow-purple-600/20 flex items-center gap-2"><Save size={18} /> Salva Documento</button>}
                 </div>
               </div>
             </form>

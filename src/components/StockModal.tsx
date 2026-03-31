@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { X, Save, ImagePlus, Trash2 } from 'lucide-react';
 import { StockItem, useStore } from '../store/useStore';
@@ -11,20 +11,26 @@ interface StockModalProps {
 
 export function StockModal({ isOpen, onClose, item }: StockModalProps) {
   const { addStockItem, updateStockItem, categories } = useStore();
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [formData, setFormData] = useState<Partial<StockItem>>(
     item || { sku: '', name: '', category: '', subcategory: '', deepcategory: '', quantity: 0, unit: 'L', minStock: 10, price: 0, images: [] }
   );
 
-  const [newImageUrl, setNewImageUrl] = useState('');
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files) return;
 
-  const addImage = (e?: any) => {
-    if (e) {
-        e.preventDefault();
-        e.stopPropagation();
-    }
-    if (!newImageUrl) return;
-    setFormData(prev => ({ ...prev, images: [...(prev.images || []), newImageUrl] }));
-    setNewImageUrl('');
+    Array.from(files).forEach(file => {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const base64String = reader.result as string;
+        setFormData(prev => ({
+          ...prev,
+          images: [...(prev.images || []), base64String]
+        }));
+      };
+      reader.readAsDataURL(file);
+    });
   };
 
   const removeImage = (index: number) => {
@@ -184,12 +190,19 @@ export function StockModal({ isOpen, onClose, item }: StockModalProps) {
                   <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest">Foto Prodotto</label>
                   <div className="flex gap-2">
                       <input 
-                        type="text" placeholder="Incolla URL immagine..." value={newImageUrl} onChange={e => setNewImageUrl(e.target.value)}
-                        onKeyDown={e => { if(e.key === 'Enter'){ e.preventDefault(); e.stopPropagation(); addImage(e); } }}
-                        className="flex-1 bg-slate-950/50 border border-white/5 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500/50" 
+                        type="file"
+                        multiple
+                        accept="image/*"
+                        ref={fileInputRef}
+                        onChange={handleImageUpload}
+                        className="hidden"
                       />
-                      <button type="button" onClick={(e) => addImage(e)} className="px-4 bg-purple-600/20 text-purple-400 border border-purple-500/30 rounded-xl hover:bg-purple-600/30 transition-all flex items-center gap-2 font-bold text-xs">
-                        <ImagePlus size={16}/> AGGIUNGI
+                      <button 
+                        type="button" 
+                        onClick={() => fileInputRef.current?.click()} 
+                        className="w-full py-3 bg-purple-600/20 text-purple-400 border border-purple-500/30 rounded-xl hover:bg-purple-600/30 transition-all flex items-center justify-center gap-2 font-bold text-xs"
+                      >
+                        <ImagePlus size={16}/> AGGIUNGI IMMAGINI DA FILE LOCALE
                       </button>
                   </div>
                   <div className="grid grid-cols-4 gap-2">

@@ -12,7 +12,7 @@ interface CustomerModalProps {
 export function CustomerModal({ isOpen, onClose, customer }: CustomerModalProps) {
   const { addCustomer, updateCustomer } = useStore();
   const [formData, setFormData] = useState<Partial<Customer>>(
-    customer || { name: '', type: 'Privato', email: '', phone: '', address: '', totalOrders: 0 }
+    customer || { name: '', type: 'Privato', email: '', phone: '', address: '', zip: '', city: '', vat: '', sdiCode: '', totalOrders: 0 }
   );
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -98,15 +98,60 @@ export function CustomerModal({ isOpen, onClose, customer }: CustomerModalProps)
                 </div>
               </div>
 
-              <div>
-                <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1.5">Indirizzo</label>
-                <input 
-                  type="text" 
-                  value={formData.address}
-                  onChange={e => setFormData({...formData, address: e.target.value})}
-                  className="w-full bg-slate-950/50 border border-white/5 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500/50"
-                  placeholder="Via, Civico, Città..."
-                />
+              <div className="grid grid-cols-3 gap-4">
+                <div className="col-span-3 sm:col-span-1">
+                  <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1.5">Indirizzo</label>
+                  <input 
+                    type="text" 
+                    value={formData.address}
+                    onChange={e => setFormData({...formData, address: e.target.value})}
+                    className="w-full bg-slate-950/50 border border-white/5 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500/50"
+                    placeholder="Via e n. civico"
+                  />
+                </div>
+                <div className="col-span-3 sm:col-span-1">
+                  <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1.5">CAP</label>
+                  <input 
+                    type="text" 
+                    value={formData.zip}
+                    onChange={e => setFormData({...formData, zip: e.target.value})}
+                    className="w-full bg-slate-950/50 border border-white/5 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500/50"
+                    placeholder="Es. 00100"
+                  />
+                </div>
+                <div className="col-span-3 sm:col-span-1">
+                  <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1.5">Città</label>
+                  <input 
+                    type="text" 
+                    value={formData.city}
+                    onChange={e => setFormData({...formData, city: e.target.value})}
+                    className="w-full bg-slate-950/50 border border-white/5 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500/50"
+                    placeholder="Città"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1.5">Partita IVA</label>
+                  <input 
+                    type="text" 
+                    value={formData.vat}
+                    onChange={e => setFormData({...formData, vat: e.target.value})}
+                    className="w-full bg-slate-950/50 border border-white/5 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500/50"
+                    placeholder="IT01234567890"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1.5">Codice SDI</label>
+                  <input 
+                    type="text" 
+                    value={formData.sdiCode}
+                    onChange={e => setFormData({...formData, sdiCode: e.target.value})}
+                    className="w-full bg-slate-950/50 border border-white/5 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500/50"
+                    placeholder="Codice Destinatario"
+                  />
+                </div>
               </div>
 
               <div className="pt-4 flex gap-3">
