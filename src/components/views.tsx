@@ -1405,12 +1405,35 @@ export function DocumentiView() {
   const [editingDoc, setEditingDoc] = useState<AppDocument | undefined>(undefined);
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState('Tutti');
+  const [sortConfig, setSortConfig] = useState<{ key: string, direction: 'asc' | 'desc' } | null>(null);
 
   const filteredDocs = documents.filter(doc => {
+      // Requirement 2: Don't show "Entrata" documents (Carico) in Documenti view
+      if (doc.direction === 'Entrata') return false;
       const matchesSearch = doc.recipient.toLowerCase().includes(search.toLowerCase()) || doc.number.toLowerCase().includes(search.toLowerCase());
       const matchesFilter = filter === 'Tutti' || doc.type === filter;
       return matchesSearch && matchesFilter;
   });
+
+  if (sortConfig !== null) {
+      filteredDocs.sort((a: any, b: any) => {
+          if (a[sortConfig.key] < b[sortConfig.key]) {
+              return sortConfig.direction === 'asc' ? -1 : 1;
+          }
+          if (a[sortConfig.key] > b[sortConfig.key]) {
+              return sortConfig.direction === 'asc' ? 1 : -1;
+          }
+          return 0;
+      });
+  }
+
+  const requestSort = (key: string) => {
+      let direction: 'asc' | 'desc' = 'asc';
+      if (sortConfig && sortConfig.key === key && sortConfig.direction === 'asc') {
+          direction = 'desc';
+      }
+      setSortConfig({ key, direction });
+  };
 
   const groupedDocs = filteredDocs.reduce((acc: any, d) => {
       const month = d.date.slice(0, 7);
@@ -1491,17 +1514,19 @@ export function DocumentiView() {
         return;
     }
     if (targetType === 'Fattura') {
+        const newDocNumber = `FPA-${doc.number.split('-').pop()}`;
         const newDoc = {
             ...doc,
             id: Date.now(),
             type: 'Fattura' as any,
-            number: `FPA-${doc.number.split('-').pop()}`,
+            number: newDocNumber,
             date: new Date().toISOString().split('T')[0],
             status: 'Emessa',
-            notes: `Da ${doc.type} ${doc.number}`
+            notes: `Da ${doc.type} ${doc.number}`,
+            linkedDocNumber: doc.number
         };
         addDocument(newDoc);
-        updateDocument(doc.id, { status: 'Convertito' });
+        updateDocument(doc.id, { status: 'Convertito', linkedDocNumber: newDocNumber });
     } else if (targetType === 'Order') {
         const newOrder: Order = {
             id: `ORD-${Date.now().toString().slice(-4)}`,
@@ -1555,7 +1580,12 @@ export function DocumentiView() {
                         <th className="p-5">Numero</th>
                         <th className="p-5">Data</th>
                         <th className="p-5">Intestatario</th>
-                        <th className="p-5">Importo</th>
+                        <th className="p-5 cursor-pointer hover:text-white transition-colors" onClick={() => requestSort('amount')}>
+                            <div className="flex items-center gap-1">
+                                Importo
+                                {sortConfig?.key === 'amount' && (sortConfig.direction === 'asc' ? ' ↑' : ' ↓')}
+                            </div>
+                        </th>
                         <th className="p-5 text-right">Stato</th>
                     </tr>
                     </thead>
@@ -1565,7 +1595,14 @@ export function DocumentiView() {
                         <td className="p-5">
                             <div className="flex items-center gap-2">
                                 <span className={`w-2 h-2 rounded-full ${doc.direction === 'Entrata' ? 'bg-emerald-400' : 'bg-blue-400'}`} />
-                                <span className="font-bold text-white">{doc.type}</span>
+                                <div>
+                                    <span className="font-bold text-white">{doc.type}</span>
+                                    {doc.linkedDocNumber && (
+                                        <p className="text-[10px] text-purple-400 font-bold uppercase mt-0.5">
+                                            {doc.type === 'Preventivo' ? `Fattura: ${doc.linkedDocNumber}` : `Da: ${doc.linkedDocNumber}`}
+                                        </p>
+                                    )}
+                                </div>
                             </div>
                         </td>
                         <td className="p-5 font-mono text-slate-400">{doc.number}</td>
@@ -1606,7 +1643,10 @@ export function DocumentiView() {
                             </>
                         )}
                         {(doc.status === 'In Ordine' || doc.status === 'Convertito') && (
+                            <>
+                             <button onClick={() => handleEdit(doc)} title="Visualizza" className="p-2 bg-slate-800 hover:bg-blue-500/20 text-blue-400 rounded-lg"><Search size={14}/></button>
                              <button onClick={() => setShowDuplicateDocDialog(doc)} title="Duplica" className="p-2 bg-slate-800 hover:bg-purple-500/20 text-purple-400 rounded-lg"><Copy size={14}/></button>
+                            </>
                         )}
                             </div>
                         </td>
