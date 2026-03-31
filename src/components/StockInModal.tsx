@@ -19,7 +19,9 @@ export function StockInModal({ isOpen, onClose }: StockInModalProps) {
     recipient: 'Magazzino Centrale',
     status: 'Completato',
     items: [],
-    amount: 0
+    amount: 0,
+    vatRate: 22,
+    applyVat: false
   });
 
   const [showNewProduct, setShowNewProduct] = useState(false);
@@ -62,8 +64,21 @@ export function StockInModal({ isOpen, onClose }: StockInModalProps) {
       }
       return item;
     });
-    const newTotal = newItems.reduce((acc, item) => acc + (item.price * item.quantity), 0);
-    setFormData({ ...formData, items: newItems, amount: newTotal });
+    const subtotal = newItems.reduce((acc, item) => acc + (item.price * item.quantity), 0);
+    const vat = formData.applyVat ? subtotal * ((formData.vatRate || 0) / 100) : 0;
+    setFormData({ ...formData, items: newItems, amount: subtotal + vat });
+  };
+
+  const toggleVat = (apply: boolean) => {
+    const subtotal = (formData.items || []).reduce((acc, item: any) => acc + (item.price * item.quantity), 0);
+    const vat = apply ? subtotal * ((formData.vatRate || 0) / 100) : 0;
+    setFormData({ ...formData, applyVat: apply, amount: subtotal + vat });
+  };
+
+  const updateVatRate = (rate: number) => {
+    const subtotal = (formData.items || []).reduce((acc, item: any) => acc + (item.price * item.quantity), 0);
+    const vat = formData.applyVat ? subtotal * (rate / 100) : 0;
+    setFormData({ ...formData, vatRate: rate, amount: subtotal + vat });
   };
 
   const handleCreateProduct = (e: React.FormEvent) => {
@@ -199,6 +214,16 @@ export function StockInModal({ isOpen, onClose }: StockInModalProps) {
                                     className="w-full bg-slate-950/50 border border-white/5 rounded-lg px-2 py-1.5 text-xs focus:outline-none"
                                 />
                             </div>
+                            <div className="w-24">
+                                <label className="block text-[8px] font-black text-slate-600 uppercase mb-1">Costo Unit.</label>
+                                <input
+                                    type="number"
+                                    step="0.01"
+                                    value={item.price}
+                                    onChange={e => updateItem(idx, { price: Number(e.target.value) })}
+                                    className="w-full bg-slate-950/50 border border-white/5 rounded-lg px-2 py-1.5 text-xs focus:outline-none"
+                                />
+                            </div>
                             <button 
                                 type="button"
                                 onClick={() => handleRemoveItem(idx)}
@@ -209,6 +234,40 @@ export function StockInModal({ isOpen, onClose }: StockInModalProps) {
                         </div>
                     ))}
                 </div>
+              </div>
+
+              <div className="space-y-4 border-t border-white/5 pt-4">
+                  <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-4">
+                          <label className="flex items-center gap-2 cursor-pointer">
+                              <input
+                                  type="checkbox"
+                                  checked={formData.applyVat}
+                                  onChange={e => toggleVat(e.target.checked)}
+                                  className="w-4 h-4 rounded border-white/10 bg-slate-950/50 text-emerald-600 focus:ring-emerald-500/50"
+                              />
+                              <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Applica IVA</span>
+                          </label>
+                          {formData.applyVat && (
+                              <div className="flex items-center gap-2">
+                                  <span className="text-[10px] font-black text-slate-500 uppercase">%</span>
+                                  <input
+                                      type="number"
+                                      value={formData.vatRate}
+                                      onChange={e => updateVatRate(Number(e.target.value))}
+                                      className="w-16 bg-slate-950/50 border border-white/5 rounded-lg px-2 py-1 text-xs focus:outline-none"
+                                  />
+                              </div>
+                          )}
+                      </div>
+                      <div className="text-right">
+                          <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Imponibile: € {((formData.items || []).reduce((acc, item: any) => acc + (item.price * item.quantity), 0)).toLocaleString()}</p>
+                          {formData.applyVat && (
+                              <p className="text-[10px] font-black text-emerald-500 uppercase tracking-widest">IVA ({(formData.vatRate || 0)}%): € {((formData.items || []).reduce((acc, item: any) => acc + (item.price * item.quantity), 0) * (formData.vatRate || 0) / 100).toLocaleString()}</p>
+                          )}
+                          <p className="text-xl font-black text-white mt-1">TOTALE: € {formData.amount?.toLocaleString()}</p>
+                      </div>
+                  </div>
               </div>
 
               <div className="pt-4 flex gap-3">
@@ -235,7 +294,7 @@ export function StockInModal({ isOpen, onClose }: StockInModalProps) {
                         initial={{ opacity: 0, scale: 0.9 }}
                         animate={{ opacity: 1, scale: 1 }}
                         exit={{ opacity: 0, scale: 0.9 }}
-                        className="absolute inset-0 z-20 bg-slate-900 p-8 flex flex-col"
+                        className="absolute inset-0 z-20 bg-slate-900 p-8 flex flex-col overflow-y-auto"
                     >
                         <div className="flex justify-between items-center mb-6">
                             <h4 className="text-lg font-black text-white">Anagrafica Rapida Prodotto</h4>

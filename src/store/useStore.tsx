@@ -71,6 +71,7 @@ export interface Order {
   status: 'Nuovo' | 'In Lavorazione' | 'Spedito' | 'Consegnato' | 'Annullato' | 'Fatturato';
   items: { sku: string; name: string; quantity: number; price: number }[];
   total: number;
+  linkedDocNumber?: string;
 }
 
 export interface Document {
@@ -85,6 +86,10 @@ export interface Document {
   status: string;
   items: { sku: string; name: string; quantity: number; price: number }[];
   sourceOrderId?: string;
+  vatRate?: number;
+  applyVat?: boolean;
+  linkedDocId?: number;
+  linkedDocNumber?: string;
 }
 
 interface AppData {
@@ -368,7 +373,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
     if (doc.direction === 'Entrata') {
       doc.items.forEach(item => {
-        newStock = newStock.map(s => s.sku === item.sku ? { ...s, quantity: s.quantity + item.quantity, status: getStockStatus(s.quantity + item.quantity, s.minStock) } : s);
+        newStock = newStock.map(s => s.sku === item.sku ? {
+          ...s,
+          quantity: s.quantity + item.quantity,
+          price: item.price, // Requirement 1a: update price/cost
+          status: getStockStatus(s.quantity + item.quantity, s.minStock)
+        } : s);
       });
     } else if (doc.direction === 'Uscita') {
       if (doc.type === 'Fattura' || doc.type === 'DDT') {
@@ -430,7 +440,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         date: new Date().toISOString().split('T')[0],
         status: 'Nuovo',
         items: quote.items,
-        total: quote.amount
+        total: quote.amount,
+        linkedDocNumber: quote.number
     };
 
     let newStock = [...stock];
@@ -438,7 +449,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         newStock = newStock.map(s => s.sku === item.sku ? { ...s, committed: (s.committed || 0) + item.quantity } : s);
     });
 
-    const newDocs = documents.map(d => d.id === quote.id ? { ...d, status: 'In Ordine' } : d);
+    const newDocs = documents.map(d => d.id === quote.id ? { ...d, status: 'In Ordine', linkedDocNumber: orderId } : d);
     
     pushToHistory({ 
         ...data, 
